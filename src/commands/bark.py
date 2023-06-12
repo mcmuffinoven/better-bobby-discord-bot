@@ -1,5 +1,3 @@
-# "@here bark!" when the first user joins the voice channel.
-
 import discord
 from discord.ext import commands
 from bot import CustomContext
@@ -9,6 +7,7 @@ class Bark(commands.Cog):
         self.bot = bot
         self.subscribed_channels = {}
     
+    # "@here bark!" when the first user joins the voice channel.
     @commands.Cog.listener()
     async def on_voice_state_update(
         self,

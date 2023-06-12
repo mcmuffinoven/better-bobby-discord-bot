@@ -2,14 +2,20 @@ import discord
 import os
 from bot import BobbyBot
 import logging
+from dotenv import load_dotenv
 
-intents = discord.Intents.default()
-intents.message_content = True
+# Load environment variables from .env file defined at root directory
+load_dotenv()
 
 # Setup default logging configuration
 discord.utils.setup_logging(level=logging.INFO)
 
 log = logging.getLogger(__name__)
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+description = 'If you want to contribute: https://github.com/kwhk/bobby-discord-bot'
 
 bot = BobbyBot(command_prefix='$', intents=intents)
 
