@@ -3,6 +3,9 @@
 import discord
 from discord.ext import commands
 import os
+import logging
+
+log = logging.getLogger(__name__)
 
 class CustomContext(commands.Context):
     async def tick(self, value):
@@ -28,9 +31,12 @@ class BobbyBot(commands.Bot):
         return await super().get_context(message, cls=cls)
 
     async def on_ready(self):
-        print(f'We have logged in as {self.user}')
+        log.info(f'We have logged in as {self.user}')
 
         # Load all commands
+        log.info('Loading extensions...')
         for file in os.listdir("commands"):
             if file.endswith(".py"):
                 await self.load_extension(f"commands.{file[:-3]}")
+        log.info('Extensions successfully loaded')
+        

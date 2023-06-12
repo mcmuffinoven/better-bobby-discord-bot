@@ -8,6 +8,12 @@ on:
     paths-ignore:
       - 'readme.md'
       - '.github/**'
+  pull_request:
+    branches:
+      - 'master'
+    paths-ignore:
+      - 'readme.md'
+      - '.github/**'
 
 jobs:
   docker:
@@ -33,6 +39,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: linux/arm64
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: kwhk/bobby-discord-bot:latest
