@@ -17,7 +17,8 @@ intents.message_content = True
 
 description = 'If you want to contribute: https://github.com/kwhk/bobby-discord-bot'
 
-bot = BobbyBot(command_prefix='$', intents=intents)
+activity = discord.Activity(type=discord.ActivityType.listening, name="-help")
+bot = BobbyBot(command_prefix='-', intents=intents, activity=activity, log_handler=False)
 
 token = os.environ.get('API_TOKEN')
 if token is not None:

@@ -8,6 +8,7 @@ class Ping(commands.Cog):
     # Ping test
     @commands.command()
     async def ping(self, ctx: CustomContext):
+        """Ping test"""
         log.debug(f'Ping test')
         await ctx.tick(True)
         await ctx.reply("woof!")

@@ -7,9 +7,9 @@ from datetime import datetime
 log = logging.getLogger(__name__)
 
 class Time(commands.Cog):
-    # Get current time from different timezones. Copied from Walker's bot - thanks Walker.
     @commands.command()
     async def time(self, ctx: CustomContext):
+        """Get current time from different timezones. Copied from Walker's bot - thanks Walker."""
         now = datetime.now()
         hkt = datetime.strftime(now.astimezone(pytz.timezone("Asia/Hong_Kong")), "%I:%M %p")
         pdt = datetime.strftime(now.astimezone(pytz.timezone("America/Vancouver")), "%I:%M %p")

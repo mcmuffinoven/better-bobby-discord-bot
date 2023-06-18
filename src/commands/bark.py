@@ -29,9 +29,9 @@ class Bark(commands.Cog):
                     channel = self.subscribed_channels[guild_id]
                     await channel.send(f"@here bark! {after.channel.name}")
     
-    # Subscribes the text channel the user is currently in for barking notifications
     @commands.command(name="subscribe")
     async def subscribe_current_channel(self, ctx: CustomContext):
+        """Subscribes the text channel the user is currently in for barking notifications"""
         if ctx.guild:
             self.subscribed_channels[ctx.guild.id] = ctx.channel
             await ctx.reply("Bobby will now bark in this channel!")
