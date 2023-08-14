@@ -4,7 +4,8 @@ from enum import Enum
 from discord.ext import commands
 from bot import CustomContext
 import asyncio
-from utils.voice_state import joined_vc, switched_vc, left_vc, vc_empty 
+from utils.voice_state import joined_vc, switched_vc, left_vc, vc_empty
+from datetime import datetime, timedelta
 
 FOCUS_TIME_SECONDS = 25 * 60 # 25 minutes
 REST_TIME_SECONDS = 5 * 60 # 5 minutes
@@ -68,7 +69,7 @@ class Pomodoro(commands.Cog):
         if (joined_vc(before.channel, after.channel) or switched_vc(before.channel, after.channel)) and after.channel is assigned_channel and len(after.channel.members) == 1:
             task = asyncio.create_task(self.start_session(assigned_channel))
             self.pomodoro_channels_status[assigned_channel.id] = [PomodoroStates.FOCUS, task]
-            await self.notify_vc(after.channel, "Pomodoro session started")
+            await after.channel.send("Pomodoro session started")
         # If user left the Pomodoro channel and it's empty
         elif (left_vc(before.channel, after.channel) or switched_vc(before.channel, after.channel)) and before.channel is assigned_channel and vc_empty(before.channel):
             _, task = self.pomodoro_channels_status.pop(assigned_channel.id)
@@ -110,12 +111,14 @@ class Pomodoro(commands.Cog):
             status, _ = self.pomodoro_channels_status[channel.id]
             if status is PomodoroStates.FOCUS:
                 await self.server_mute_channel(channel, True)
-                await self.notify_vc(channel, "Focus time has begun")
+                msg = "Focus time has begun. Ending " + self.generate_timer_text(FOCUS_TIME_SECONDS)
+                await self.notify_vc(channel, msg)
                 await start_focus_time()
                 self.pomodoro_channels_status[channel.id][0] = PomodoroStates.REST
             elif status is PomodoroStates.REST:
                 await self.server_mute_channel(channel, False)
-                await self.notify_vc(channel, "Rest time has begun")
+                msg = "Rest time has begun. Ending " + self.generate_timer_text(REST_TIME_SECONDS)
+                await self.notify_vc(channel, msg)
                 await start_rest_time()
                 self.pomodoro_channels_status[channel.id][0] = PomodoroStates.FOCUS
     
@@ -129,6 +132,13 @@ class Pomodoro(commands.Cog):
             notification += f"{member.mention} "
         
         await channel.send(notification + msg)
-
+    
+    def generate_timer_text(self, endTimeInSeconds):
+        """Generate dynamic text (supported by Discord) on how many minutes focus/rest phase will end relative to current time."""
+        now = datetime.now()
+        end = now + timedelta(seconds=endTimeInSeconds)
+        unix = int(end.timestamp())
+        return f"<t:{unix}:R>" 
+        
 async def setup(bot):
     await bot.add_cog(Pomodoro(bot))
