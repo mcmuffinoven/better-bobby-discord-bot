@@ -40,3 +40,4 @@ class BobbyBot(commands.Bot):
                 await self.load_extension(f"commands.{file[:-3]}")
         log.info('Extensions successfully loaded')
         
+        

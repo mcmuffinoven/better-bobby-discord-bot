@@ -3,6 +3,8 @@ import os
 from bot import BobbyBot
 import logging
 from dotenv import load_dotenv
+from bot import CustomContext
+
 
 # Load environment variables from .env file defined at root directory
 load_dotenv()

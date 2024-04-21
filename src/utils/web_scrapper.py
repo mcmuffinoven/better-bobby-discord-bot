@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from babel.numbers import parse_decimal, get_currency_symbol
 import re
 import locale
+from datetime import datetime
 
 
 # """General Use
@@ -31,12 +32,12 @@ class WebScrapper:
 	chrome_options.add_argument('--log-level=3')
 	decimal_point_char = locale.localeconv()['decimal_point']
  
-	def __init__(self, scrape_url):
+	def __init__(self):
 		self.browser = webdriver.Chrome(options=WebScrapper.chrome_options)
 		# url to scrape
-		self.scrape_url = scrape_url
+		self.__scrape_url = ""
 		# Load browser on instantiation
-		self.browser.get(self.scrape_url)
+		self.browser.get(self.__scrape_url)
 		self.retry_limit = 5
   
 	@staticmethod
@@ -77,8 +78,8 @@ class WebScrapper:
 		return element
    
 	def get_product_current_price(self):
-		# self.browser.get(self.scrape_url)
-		XPATH = WebScrapper.check_support_url(self.scrape_url)['product_price']
+		# self.browser.get(self.__scrape_url)
+		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_price']
 
 		retry = 0
 		while retry <= self.retry_limit:
@@ -98,9 +99,9 @@ class WebScrapper:
   
 	# Might not be needed, since the user could provide an alias 
 	def get_product_name(self):
-		# self.browser.get(self.scrape_url)
+		# self.browser.get(self.__scrape_url)
 
-		XPATH = WebScrapper.check_support_url(self.scrape_url)['product_name']
+		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_name']
 
 		retry = 0
 		while retry <= self.retry_limit:
@@ -114,6 +115,35 @@ class WebScrapper:
   
 		print(product_name)
 		# self.browser.close()
+  
+	def set_scrape_url(self, url):
+		self.__scrape_url = url
+  
+	def scrape_product_data(self, url):
+		scraped_data = {}
+		self.set_scrape_url(url)
+      
+		# Only applicable for the first time
+		# This should be changed
+		prod_start_price = self.get_product_current_price()
+		prod_cur_price = self.get_product_current_price()
+		prod_lowest_price = self.get_product_current_price()
+		self.terminate_session()
+		
+		scraped_data["prodStartPrice"] = prod_start_price
+		scraped_data["prodCurPrice"] = prod_cur_price
+		scraped_data["prodLowestPrice"] = prod_lowest_price
+		
+		return scraped_data
+
+	def construct_data(self, user_data, scraped_data):
+		# Merge user and scraped data
+		processed_data = user_data | scraped_data
+		
+		processed_data["lowestProductPriceDate"] = datetime.now().strftime("%Y-%m-%d")
+		processed_data["trackedSinceDate"]=datetime.now().strftime("%Y-%m-%d")
+		
+		return processed_data
   
 	def terminate_session(self):
 		self.browser.quit()

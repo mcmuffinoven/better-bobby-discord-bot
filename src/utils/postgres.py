@@ -53,31 +53,6 @@ class Postgres():
                 print ("Exception TYPE:", type(error))
         return data, colnames
     
-    def scrape_product_data(self, url):
-        web_scrapper = WebScrapper(scrape_url=url)
-        scraped_data = {}
-        
-        # Only applicable for the first time
-        # This should be changed
-        prod_start_price = web_scrapper.get_product_current_price()
-        prod_cur_price = web_scrapper.get_product_current_price()
-        prod_lowest_price = web_scrapper.get_product_current_price()
-        web_scrapper.terminate_session()
-        
-        scraped_data["prodStartPrice"] = prod_start_price
-        scraped_data["prodCurPrice"] = prod_cur_price
-        scraped_data["prodLowestPrice"] = prod_lowest_price
-        
-        return scraped_data
-
-    def construct_data(self, user_data, scraped_data):
-        # Merge user and scraped data
-        processed_data = user_data | scraped_data
-        
-        processed_data["lowestProductPriceDate"] = datetime.now().strftime("%Y-%m-%d")
-        processed_data["trackedSinceDate"]=datetime.now().strftime("%Y-%m-%d")
-        
-        return processed_data
     
     # ----- Create  ----- #
     def insert_user(self, user_id):
@@ -91,8 +66,8 @@ class Postgres():
     
     # Add new product
     def insert_product(self, product_category, product_link):
-        
-        scraped_data = self.scrape_product_data(product_link)
+        scrapper = WebScrapper()
+        data = scrapper.scrape_product_data(product_link)
         # data = self.construct_data(user_data=user_data, scraped_data=scraped_data)
         
         # query = f"""
@@ -133,7 +108,7 @@ class Postgres():
 
         # Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
         
-        return scraped_data
+        return data
 
 
     # ----- Read ----- #

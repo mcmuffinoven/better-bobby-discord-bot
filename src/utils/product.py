@@ -8,7 +8,14 @@ from utils.web_scrapper import WebScrapper
 import discord
 from discord.ext import commands
 from bot import CustomContext
+from enum import Enum
 
+class Product_category(Enum):
+    TECH = 1
+    GROCERY = 2
+    FASHION = 3
+    COSEMETICS = 4
+    
 class Product():
     def __init__(self, product_category, product_link, user_id=None):
         # self.user_id = user_id
