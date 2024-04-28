@@ -1,12 +1,15 @@
 # Postgres Connection Class
 
 # ----- Imports ----- #
-# import psycopg
-# from psycopg import OperationalError
-# from db_parser import get_db_info
+import psycopg
+from psycopg import OperationalError
+from utils.db_parser import get_db_info
 from datetime import datetime
 from utils.web_scrapper import WebScrapper
+import logging
 # from schedule import every, repeat, run_pending
+
+log = logging.getLogger(__name__)
 
 class Postgres():
     # Class defaults for products
@@ -14,13 +17,13 @@ class Postgres():
     users_table = "users"
     
     def __init__(self, filename='db_info.ini', section='postgres'):
-        # params = get_db_info(filename,section)
-        # try:
-        #     self.connection = psycopg.connect(**params)
-        #     print("Successfully connected to the database.")
+        params = get_db_info(filename,section)
+        try:
+            self.connection = psycopg.connect(**params)
+            log.info("Successfully connected to the database.")
 
-        # except OperationalError:
-        #     print("Error connecting to the database :/")
+        except OperationalError:
+            log.info("Error connecting to the database :/")
         pass
 
     
@@ -60,53 +63,54 @@ class Postgres():
                     INSERT INTO {Postgres.users_table}
                     (user_id) values (%s) ON CONFLICT DO NOTHING;
         """
-        
+        print("Inserting user", user_id)
         Postgres.generic_insert(connection=self.connection, query=query, parameters=[user_id])
         return
     
     # Add new product
-    def insert_product(self, product_category, product_link):
+    def insert_product(self, product_category, product_link,user_id):
         scrapper = WebScrapper()
-        data = scrapper.scrape_product_data(product_link)
-        # data = self.construct_data(user_data=user_data, scraped_data=scraped_data)
+        scraped_data = scrapper.scrape_product_data(product_link)
+        data = scrapper.construct_data(user_data={"userID" : user_id, "category" : product_category, "productLink" : product_link}, scraped_data=scraped_data)
         
-        # query = f"""
-        #     insert into {self.default_table_name} (
-        #     fk_user_id,
-        #     category,
-        #     product_name,
-        #     starting_product_price,
-        #     current_product_price,
-        #     lowest_product_price,
-        #     lowest_product_price_date,
-        #     tracked_since_date,
-        #     product_link,
-        #     sale_bool
-        #     )
-        #     values ((SELECT id from users where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s);
-        #     """
+        query = f"""
+            insert into {self.default_table_name} (
+            fk_user_id,
+            category,
+            product_name,
+            starting_product_price,
+            current_product_price,
+            lowest_product_price,
+            lowest_product_price_date,
+            tracked_since_date,
+            product_link,
+            sale_bool
+            )
+            values ((SELECT id from users where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """
         
-        # # Parse Data
-        # fk_user_id = data["user"]   
-        # category = data["category"]    
-        # product_name = data["productName"]         
-        # product_link = data['productLink']
-        # prod_start_price = data["prodStartPrice"]
-        # prod_cur_price = data["prodCurPrice"]
-        # prod_lowest_price = data["prodLowestPrice"]
-        # lowest_prod_price_date = data["lowestProductPriceDate"]
-        # tracked_since_data = data["trackedSinceDate"]
-        # is_sale_bool = False
+        # Parse Data
+        fk_user_id = data["userID"]   
+        category = data["category"]    
+        product_name = data["productName"]         
+        product_link = data['productLink']
+        prod_start_price = data["prodStartPrice"]
+        prod_cur_price = data["prodCurPrice"]
+        prod_lowest_price = data["prodLowestPrice"]
+        lowest_prod_price_date = data["lowestProductPriceDate"]
+        tracked_since_data = data["trackedSinceDate"]
+        is_sale_bool = False
         
-        # parameters = (
-        #                 fk_user_id, category, product_name, 
-        #                 prod_start_price, prod_cur_price, 
-        #                 prod_lowest_price, lowest_prod_price_date,
-        #                 tracked_since_data, product_link, is_sale_bool
-        #                 )      
-                      
+        parameters = (
+                        fk_user_id, category, product_name, 
+                        prod_start_price, prod_cur_price, 
+                        prod_lowest_price, lowest_prod_price_date,
+                        tracked_since_data, product_link, is_sale_bool
+                        )     
+        
 
-        # Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
+
+        Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
         
         return data
 
