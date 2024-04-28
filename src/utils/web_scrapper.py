@@ -36,10 +36,14 @@ class WebScrapper:
 		self.browser = webdriver.Chrome(options=WebScrapper.chrome_options)
 		# url to scrape
 		self.__scrape_url = ""
-		# Load browser on instantiation
-		self.browser.get(self.__scrape_url)
 		self.retry_limit = 5
   
+
+	def load_browser(self):
+		# Load browser
+		self.browser.get(self.__scrape_url)
+
+
 	@staticmethod
 	def check_support_url(scrape_url:str):
 		# Dict of all supported links
@@ -48,43 +52,47 @@ class WebScrapper:
 			"Amazon": "",
 			"Best Buy": {
        						"product_price": ".//span[@data-automation='product-price']/span"
-                			,"product_name":"productName_2KoPa"
+                			,"product_name":'//*[@id="root"]/div/div[2]/div[3]/section[3]/div[1]/h1'
                    		}
    }
   
 		# Not en efficient way, when there are many supported urls
 		if scrape_url.find("amazon") != -1:
-			XPATH = valid_url_dict["Amazon"]
+			value = valid_url_dict["Amazon"]
 		elif scrape_url.find("bestbuy") != -1:
-			XPATH = valid_url_dict["Best Buy"]
-  
-		if XPATH:
-			return XPATH
+			value = valid_url_dict["Best Buy"]
+
+		
+		if value:
+			return value
 		else:
 			raise Exception("URL is not supported!")
    
-	def find_XPATH(self, XPATH):
+	def find_element(self, attribute, value):
 
 		retry = 0	
 		while retry <= self.retry_limit:
 			try:
-				element = self.browser.find_element(By.XPATH, XPATH).get_attribute("innerHTML")
+				# print("printing", self.browser.find_element(attribute, value))
+				element = self.browser.find_element(attribute, value).get_attribute("innerHTML")
 				break
 			except Exception as e:
 				print(e)
 				retry += 1
 				continue
-				
+		if not element:
+			raise Exception("Element not found from given XPATH. Check if XPATH is correct")
+		
 		return element
    
 	def get_product_current_price(self):
 		# self.browser.get(self.__scrape_url)
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_price']
-
 		retry = 0
+		product_price_raw = 0
 		while retry <= self.retry_limit:
 			try:
-				product_price_raw = self.find_XPATH(XPATH)
+				product_price_raw = self.find_element(attribute=By.XPATH, value=XPATH)
 				break
 			except Exception as e:
 				print(e)
@@ -94,7 +102,8 @@ class WebScrapper:
   
 		# Strip everything except decimal and digit, then convert to float
 		product_price = float(re.sub(r'[^0-9'+self.decimal_point_char+r']+', '', product_price_raw))
-	
+		if product_price == 0:
+			raise Exception("Failed to find product price. Please check XPATH.")
 		return product_price
   
 	# Might not be needed, since the user could provide an alias 
@@ -102,37 +111,48 @@ class WebScrapper:
 		# self.browser.get(self.__scrape_url)
 
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_name']
-
+		product_name = ""
 		retry = 0
 		while retry <= self.retry_limit:
 			try:
-				product_name = self.find_XPATH(XPATH)
+				product_name = self.find_element(attribute=By.XPATH, value=XPATH)
 				break
 			except Exception as e:
 				print(e)
 				retry += 1
 				continue
   
-		print(product_name)
 		# self.browser.close()
+  
+		if not product_name:
+			raise Exception("Product name not found. Please check HTML value is correct.")
+		
+		return product_name
+  
   
 	def set_scrape_url(self, url):
 		self.__scrape_url = url
+
+	def get_scrape_url(self):
+		return self.__scrape_url
   
 	def scrape_product_data(self, url):
 		scraped_data = {}
 		self.set_scrape_url(url)
+		self.load_browser()
       
 		# Only applicable for the first time
 		# This should be changed
 		prod_start_price = self.get_product_current_price()
 		prod_cur_price = self.get_product_current_price()
 		prod_lowest_price = self.get_product_current_price()
+		prod_name = self.get_product_name()
 		self.terminate_session()
 		
 		scraped_data["prodStartPrice"] = prod_start_price
 		scraped_data["prodCurPrice"] = prod_cur_price
 		scraped_data["prodLowestPrice"] = prod_lowest_price
+		scraped_data["productName"] = prod_name
 		
 		return scraped_data
 
