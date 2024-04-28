@@ -52,10 +52,9 @@ class Price_tracker(commands.Cog):
         
         try:
             
-            data = await self.scrape_product(product_category,product_link, ctx.message.author)
+            data = await self.scrape_product(product_category,product_link, ctx.message.author.name)
             
-            await ctx.send(f"Adding {data.product_name} with starting price {data.product_current_price} to the database. You will recieve a message when this item is on sale." )
-            await ctx.send("Adding")
+            await ctx.send(f'Adding {data["productName"]} with starting price {data["prodCurPrice"]} to the database. You will receive a message when this item is on sale.' )
     
         except Exception as e:
             log.error(e)
