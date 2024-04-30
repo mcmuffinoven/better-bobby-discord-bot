@@ -29,8 +29,11 @@ class Price_tracker(commands.Cog):
 
     @to_thread
     def scrape_product(self, product_category, product_link:str, user_id):
-        data = self.db.insert_product(product_category=product_category, product_link=product_link, user_id=user_id)
-        log.info(data)
+        try:
+            self.db.insert_user(user_id=user_id)
+            data = self.db.insert_product(product_category=product_category, product_link=product_link, user_id=user_id)
+        except Exception as e:
+            log.error(e)
         
         return data
 
