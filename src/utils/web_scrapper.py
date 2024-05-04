@@ -7,6 +7,8 @@ import re
 import locale
 from datetime import datetime
 
+from utils.product import Product
+
 
 # """General Use
 # 1. User gives a website 
@@ -136,25 +138,27 @@ class WebScrapper:
 	def get_scrape_url(self):
 		return self.__scrape_url
   
-	def scrape_product_data(self, url):
-		scraped_data = {}
-		self.set_scrape_url(url)
+	def scrape_product_data(self, product_category, product_url, user_id):
+		self.set_scrape_url(product_url)
 		self.load_browser()
       
 		# Only applicable for the first time
 		# This should be changed
-		prod_start_price = self.get_product_current_price()
-		prod_cur_price = self.get_product_current_price()
-		prod_lowest_price = self.get_product_current_price()
-		prod_name = self.get_product_name()
+		# Check database if this item has been added. Otherwise only fetch for current price. 
+  
+
+		product = Product(product_category=product_category,product_link=product_url, user_id=user_id)
+		product.product_start_price = self.get_product_current_price()
+		product.product_cur_price = self.get_product_current_price()
+		product.product_lowest_price = self.get_product_current_price()
+		product.product_name = self.get_product_name()
+
+		product.product_lowest_price_date = datetime.now().strftime("%Y-%m-%d")
+		
+
 		self.terminate_session()
 		
-		scraped_data["prodStartPrice"] = prod_start_price
-		scraped_data["prodCurPrice"] = prod_cur_price
-		scraped_data["prodLowestPrice"] = prod_lowest_price
-		scraped_data["productName"] = prod_name
-		
-		return scraped_data
+		return product
 
 	def construct_data(self, user_data, scraped_data):
 		# Merge user and scraped data
