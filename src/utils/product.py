@@ -17,16 +17,16 @@ class Product_category(Enum):
     COSEMETICS = 4
     
 class Product():
-    def __init__(self, product_category, product_link, user_id=None):
-        # self.user_id = user_id
+    def __init__(self, product_category, product_url, user_id):
+        self.product_user_id = user_id
         self.product_category = product_category
-        self.product_link = product_link
-        self.product_tracked_date = datetime.now()
+        self.product_url = product_url
+        self.product_tracked_since_date = datetime.now()
         
         # Scrape Related Functions
         self.product_name = WebScrapper.get_product_name()
-        self.product_starting_price = WebScrapper.get_product_current_price()
-        self.product_current_price = WebScrapper.get_product_current_price()
+        self.product_start_price = WebScrapper.get_product_current_price()
+        self.product_cur_price = WebScrapper.get_product_current_price()
         self.product_lowest_price, self.product_lowest_price_date = self.get_lowest_price()
         self.product_sale = self.is_product_sale()
         
