@@ -1,24 +1,59 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from bot import CustomContext
 from utils.product import Product, Product_category
-from utils.web_scrapper import WebScrapper
 from utils.postgres import Postgres
 import logging
 from table2ascii import table2ascii as t2a, PresetStyle
 from utils.user import User
 
+from utils.web_scrapper import WebScrapper
+
 import typing
 import functools
 import asyncio
 
+import datetime
+
 
 log = logging.getLogger(__name__)
+UTC = datetime.timezone.utc
+ROUTINE_SCRAPE = datetime.time(hour=8, tzinfo=UTC),
 
 class Price_tracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = Postgres(filename="utils/db_info.ini", section="postgres")
+
+
+    async def alert_user(self, ctx: CustomContext, user_id):
+        await ctx.channel.send(f"<@mcmuffinoven>")
+
+    @tasks.loop(time=ROUTINE_SCRAPE)
+    async def routine_product_scrape(self):
+        # multi thread
+        # 10 users, 10 products. 100 scrapes a night 
+        # time doesnt really matter i guess
+        # 1. Get all products to be scraped from every user 
+        # 2. Edit database
+            # if there is a sale
+                # overwrite sale bool 
+                # overwrite price
+                # overwrite cheapest date
+                # overwrite cheapest price
+
+        # 3. Alert user
+        scrapper = WebScrapper()
+
+        users_list = self.db.fetch_all_users()
+
+        for user in users_list:
+            user_products = self.db.fetch_all_user_products()
+
+            for product in user_products:
+                scrapper.scrape_product_data()
+
+        pass
     
     def to_thread(func: typing.Callable) -> typing.Coroutine:
         @functools.wraps(func)
@@ -28,10 +63,10 @@ class Price_tracker(commands.Cog):
 
 
     @to_thread
-    def scrape_product(self, product_category, product_link:str, user_id):
+    def scrape_product(self, product_category, product_url:str, user_id):
         try:
             self.db.insert_user(user_id=user_id)
-            data = self.db.insert_product(product_category=product_category, product_link=product_link, user_id=user_id)
+            data = self.db.insert_product(product_category=product_category, product_url=product_url, user_id=user_id)
         except Exception as e:
             log.error(e)
         
@@ -39,29 +74,25 @@ class Price_tracker(commands.Cog):
 
 
     @commands.command(name="track_product")
-    async def track_product(self, ctx: CustomContext, product_category:str=None, product_link:str=None):
+    async def track_product(self, ctx: CustomContext, product_category:str=None, product_url:str=None):
         if not product_category:
             await ctx.send("You forgot the product category")
         else:
-            # print(Product_category.__members__)
             if product_category.upper() not in list(Product_category.__members__.keys()):
                 await ctx.send(f"Please choose a category from: {', '.join(list(Product_category.__members__.keys()))}")
         
-        if not product_link:
+        if not product_url:
             await ctx.send("You forgot the product link")
-        # init new product
-        # product = Product(product_category=product_category, product_link=product_link)
-        # log.info(ctx.message.author)
         
         try:
             
-            data = await self.scrape_product(product_category,product_link, ctx.message.author.name)
+            data = await self.scrape_product(product_category,product_url, ctx.message.author.name)
             
             await ctx.send(f'Adding {data["productName"]} with starting price {data["prodCurPrice"]} to the database. You will receive a message when this item is on sale.' )
     
         except Exception as e:
             log.error(e)
-            # await ctx.send(f"Error adding {product.product_name}" )
+            await ctx.send(f'Error adding {data["product_name"]}')
             
     @commands.command(name="get_product")
     async def get_all(self,ctx: CustomContext):
