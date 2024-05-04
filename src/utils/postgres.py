@@ -55,8 +55,7 @@ class Postgres():
                 print ("Oops! An exception has occured:", error)
                 print ("Exception TYPE:", type(error))
         return data, colnames
-    
-    
+
     # ----- Create  ----- #
     def insert_user(self, user_id):
         query = f"""
@@ -68,10 +67,9 @@ class Postgres():
         return
     
     # Add new product
-    def insert_product(self, product_category, product_link,user_id):
+    def insert_product(self, product_category, product_url, user_id):
         scrapper = WebScrapper()
-        scraped_data = scrapper.scrape_product_data(product_link)
-        data = scrapper.construct_data(user_data={"userID" : user_id, "category" : product_category, "productLink" : product_link}, scraped_data=scraped_data)
+        product = scrapper.scrape_product_data(product_category=product_category, product_url=product_url, user_id=user_id)
         
         query = f"""
             insert into {self.default_table_name} (
@@ -90,15 +88,15 @@ class Postgres():
             """
         
         # Parse Data
-        fk_user_id = data["userID"]   
-        category = data["category"]    
-        product_name = data["productName"]         
-        product_link = data['productLink']
-        prod_start_price = data["prodStartPrice"]
-        prod_cur_price = data["prodCurPrice"]
-        prod_lowest_price = data["prodLowestPrice"]
-        lowest_prod_price_date = data["lowestProductPriceDate"]
-        tracked_since_data = data["trackedSinceDate"]
+        fk_user_id = product.product_user_id   
+        category = product.product_category    
+        product_name = product.product_name       
+        product_link = product.product_url
+        prod_start_price = product.product_start_price
+        prod_cur_price = product.product_cur_price
+        prod_lowest_price = product.product_lowest_price
+        lowest_prod_price_date = product.product_lowest_price_date
+        tracked_since_data = product.product_tracked_since_date
         is_sale_bool = False
         
         parameters = (
@@ -112,7 +110,7 @@ class Postgres():
 
         Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
         
-        return data
+        return product
 
 
     # ----- Read ----- #
@@ -129,6 +127,15 @@ class Postgres():
                 select * from products inner join users on products.fk_user_id = (select id from users where user_id = %s) where users.user_id = %s;
             """
         parameters = (user_id, user_id)
+        data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
+        
+        return data, colnames
+    
+    def fetch_all_users(self):
+        query = f"""
+                SELECT * FROM {self.users_table}
+        """
+        parameters = None
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
         return data, colnames
