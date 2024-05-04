@@ -159,15 +159,6 @@ class WebScrapper:
 		self.terminate_session()
 		
 		return product
-
-	def construct_data(self, user_data, scraped_data):
-		# Merge user and scraped data
-		processed_data = user_data | scraped_data
-		
-		processed_data["lowestProductPriceDate"] = datetime.now().strftime("%Y-%m-%d")
-		processed_data["trackedSinceDate"]=datetime.now().strftime("%Y-%m-%d")
-		
-		return processed_data
   
 	def terminate_session(self):
 		self.browser.quit()
