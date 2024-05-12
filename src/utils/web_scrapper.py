@@ -7,7 +7,7 @@ import re
 import locale
 from datetime import datetime
 
-from utils.product import Product
+from product import Product
 
 
 # """General Use
@@ -147,13 +147,17 @@ class WebScrapper:
 		# Check database if this item has been added. Otherwise only fetch for current price. 
   
 
-		product = Product(product_category=product_category,product_link=product_url, user_id=user_id)
+		product = Product()
+		product.product_category = product_category
+		product.product_url = product_url
+		product.product_user_id = user_id
 		product.product_start_price = self.get_product_current_price()
 		product.product_cur_price = self.get_product_current_price()
 		product.product_lowest_price = self.get_product_current_price()
 		product.product_name = self.get_product_name()
 
 		product.product_lowest_price_date = datetime.now().strftime("%Y-%m-%d")
+		product.product_tracked_since_date = datetime.now().strftime("%Y-%m-%d")
 		
 
 		self.terminate_session()
