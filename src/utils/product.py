@@ -3,11 +3,11 @@
 # Product Auto Fetching
 # Product logic to check sales
 from datetime import datetime
-from utils.web_scrapper import WebScrapper
+# from utils.web_scrapper import WebScrapper
 
-import discord
-from discord.ext import commands
-from bot import CustomContext
+# import discord
+# from discord.ext import commands
+# from bot import CustomContext
 from enum import Enum
 
 class Product_category(Enum):
@@ -17,18 +17,29 @@ class Product_category(Enum):
     COSEMETICS = 4
     
 class Product():
-    def __init__(self, product_category, product_url, user_id):
-        self.product_user_id = user_id
-        self.product_category = product_category
-        self.product_url = product_url
-        self.product_tracked_since_date = datetime.now()
+    def __init__(self):
+        self.product_user_id = None
+        self.product_category = None
+        self.product_name = None
+        self.product_start_price = None
+        self.product_cur_price = None
+        self.product_lowest_price = None
+        self.product_lowest_price_date = None
+        self.product_tracked_since_date = None
+        self.product_url = None
+        self.product_sale = None
         
-        # Scrape Related Functions
-        self.product_name = WebScrapper.get_product_name()
-        self.product_start_price = WebScrapper.get_product_current_price()
-        self.product_cur_price = WebScrapper.get_product_current_price()
-        self.product_lowest_price, self.product_lowest_price_date = self.get_lowest_price()
-        self.product_sale = self.is_product_sale()
+        # # Scrape Related Functions
+        # self.product_name = WebScrapper.get_product_name()
+        # self.product_start_price = WebScrapper.get_product_current_price()
+        # self.product_cur_price = WebScrapper.get_product_current_price()
+        # self.product_lowest_price, self.product_lowest_price_date = self.get_lowest_price()
+        # self.product_sale = self.is_product_sale()
+
+
+    def set_attriutes(self, attrs):
+        pass
+
         
     def is_product_sale(self):
         # 1. Get Current Price 
@@ -41,6 +52,7 @@ class Product():
         # 2. Check Database for lowest price
         # 3. Return Lowest
         return
+    
     
             
         
