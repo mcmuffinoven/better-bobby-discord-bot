@@ -116,7 +116,9 @@ class Postgres():
     # ----- Read ----- #
     def fetch_product(self, product_name, user_id):
         query = f"""
-                    select * from {self.default_table_name} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.product_name = %s;
+                select {self.users_table}.user_id, products.category, products.product_name,
+                products.starting_product_price, products.current_product_price, products.lowest_product_price,
+                products.lowest_product_price_date, products.tracked_since_date, products.product_link, products.sale_bool from {self.default_table_name} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.product_name = %s;
         """
         parameters = (user_id, product_name)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
@@ -124,7 +126,10 @@ class Postgres():
     
     def fetch_all_user_products(self, user_id):
         query = f"""
-                select * from products inner join users on products.fk_user_id = (select id from users where user_id = %s) where users.user_id = %s;
+                select {self.users_table}.user_id, products.category, products.product_name,
+                products.starting_product_price, products.current_product_price, products.lowest_product_price,
+                products.lowest_product_price_date, products.tracked_since_date, products.product_link, products.sale_bool
+                from products inner join users on products.fk_user_id = (select id from users where user_id = %s);
             """
         parameters = (user_id, user_id)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
@@ -133,12 +138,20 @@ class Postgres():
     
     def fetch_all_users(self):
         query = f"""
-                SELECT * FROM {self.users_table}
+                SELECT {self.users_table}.user_id FROM {self.users_table}
         """
-        parameters = None
-        data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
+        data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=(()))
         
         return data, colnames
+    
+    def check_product(self,product_name):
+        query = f"""
+                SELECT EXISTS (SELECT 1 FROM {self.default_table_name} WHERE product_name = %s);
+        """
+        parameters = (product_name,)
+        data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
+        
+        return bool(data[0][0])
 
     # ----- Update ----- #
 
