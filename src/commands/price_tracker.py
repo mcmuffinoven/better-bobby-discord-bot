@@ -48,10 +48,18 @@ class Price_tracker(commands.Cog):
         users_list = self.db.fetch_all_users()
 
         for user in users_list:
-            user_products = self.db.fetch_all_user_products()
+            user_products = self.db.fetch_all_user_products(user_id=user)
 
             for product in user_products:
                 scrapper.scrape_product_data()
+
+        pass
+
+    def get_all_user_products(self,user_id):
+        data,colnames = self.db.fetch_all_user_products(user_id=user_id)
+
+        attrs = zip(data,colnames)
+        
 
         pass
     
