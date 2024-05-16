@@ -51,10 +51,13 @@ class WebScrapper:
 		# Dict of all supported links
   
 		valid_url_dict = {
-			"Amazon": "",
+			"Amazon": {
+							"product_price": "/html/body/div[2]/div/div[7]/div[4]/div[4]/div[12]/div/div/div[1]/div/div[3]/div[1]/span[3]/span[2]/span[2]/text()",
+							"product_name": "/html/body/div[2]/div/div[7]/div[4]/div[4]/div[1]/div/h1/span[1]/text()"
+            },
 			"Best Buy": {
-       						"product_price": ".//span[@data-automation='product-price']/span"
-                			,"product_name":'//*[@id="root"]/div/div[2]/div[3]/section[3]/div[1]/h1'
+       						"product_price": "/html/body/div[1]/div/div[2]/div[3]/section[4]/div[1]/div/div[1]/span/div/div",
+                			"product_name":'//*[@id="root"]/div/div[2]/div[3]/section[3]/div[1]/h1'
                    		}
    }
   
