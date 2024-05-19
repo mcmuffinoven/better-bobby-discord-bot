@@ -27,7 +27,7 @@ class Product():
         self.product_lowest_price_date = None
         self.product_tracked_since_date = None
         self.product_url = None
-        self.product_sale = None
+        self.product_sale_bool = None
         
         # # Scrape Related Functions
         # self.product_name = WebScrapper.get_product_name()
