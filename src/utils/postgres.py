@@ -7,6 +7,9 @@ from utils.db_parser import get_db_info
 from datetime import datetime
 from utils.web_scrapper import WebScrapper
 import logging
+
+from utils.product import Product
+
 # from schedule import every, repeat, run_pending
 
 log = logging.getLogger(__name__)
@@ -45,6 +48,7 @@ class Postgres():
     @staticmethod
     def generic_fetch(connection, query, parameters):
         data = None
+        colnames = None
         with connection.cursor() as cur:
             try:
                 # print(query, parameters)
@@ -55,6 +59,15 @@ class Postgres():
                 print ("Oops! An exception has occured:", error)
                 print ("Exception TYPE:", type(error))
         return data, colnames
+    
+    
+    def create_product(self, value, properties):
+        product = Product()
+        
+        for property_name, value in zip(properties,value):
+            setattr(product, "product_"+property_name, value)
+            
+        return product
 
     # ----- Create  ----- #
     def insert_user(self, user_id):
@@ -75,13 +88,13 @@ class Postgres():
             insert into {self.default_table_name} (
             fk_user_id,
             category,
-            product_name,
-            starting_product_price,
-            current_product_price,
-            lowest_product_price,
-            lowest_product_price_date,
+            name,
+            start_price,
+            cur_price,
+            lowest_price,
+            lowest_price_date,
             tracked_since_date,
-            product_link,
+            url,
             sale_bool
             )
             values ((SELECT id from users where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s);
@@ -116,25 +129,33 @@ class Postgres():
     # ----- Read ----- #
     def fetch_product(self, product_name, user_id):
         query = f"""
-                select {self.users_table}.user_id, products.category, products.product_name,
-                products.starting_product_price, products.current_product_price, products.lowest_product_price,
-                products.lowest_product_price_date, products.tracked_since_date, products.product_link, products.sale_bool from {self.default_table_name} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.product_name = %s;
+                select {self.users_table}.user_id, products.category, products.name,
+                products.start_price, products.cur_price, products.lowest_price,
+                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool from {self.default_table_name} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
         """
         parameters = (user_id, product_name)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
-        return data, colnames
+        
+        product = self.create_product(value=data[0], properties=colnames)
+        return product
+        
+        # return data[0],colnames
     
     def fetch_all_user_products(self, user_id):
         query = f"""
-                select {self.users_table}.user_id, products.category, products.product_name,
-                products.starting_product_price, products.current_product_price, products.lowest_product_price,
-                products.lowest_product_price_date, products.tracked_since_date, products.product_link, products.sale_bool
-                from products inner join users on products.fk_user_id = (select id from users where user_id = %s);
+                select {self.users_table}.user_id, products.category, products.name,
+                products.start_price, products.cur_price, products.lowest_price,
+                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool
+                from {self.default_table_name} inner join users on products.fk_user_id = (select id from {self.users_table} where user_id = %s);
             """
-        parameters = (user_id, user_id)
+        parameters = (user_id,)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
-        return data, colnames
+        product_list = []
+        for row in data:
+            product_list.append(self.create_product(value=row, properties=colnames))
+            
+        return product_list
     
     def fetch_all_users(self):
         query = f"""
@@ -161,7 +182,7 @@ class Postgres():
         # 1. Check DB for most recent product_price
         
         query_url = f"""
-                select product_link, current_product_price from {self.default_table_name} where products.fk_user_id = (select id from users where user_id = %s) and products.product_name = %s;
+                select product_link, current_product_price from {self.default_table_name} where products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
         """
         
         parameters_url = (user_id, product_name)
