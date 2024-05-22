@@ -17,6 +17,15 @@ class Product_category(Enum):
     COSEMETICS = 4
     
 class Product():
+    @staticmethod
+    def create_product(value, properties):
+        product = Product()
+        
+        for property_name, value in zip(properties,value):
+            setattr(product, "product_"+property_name, value)
+            
+        return product
+    
     def __init__(self):
         self.product_user_id = None
         self.product_category = None
