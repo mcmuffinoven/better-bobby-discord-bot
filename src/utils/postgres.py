@@ -141,7 +141,7 @@ class Postgres():
         
         # return data[0],colnames
     
-    def fetch_all_user_products(self, user_id):
+    def fetch_all_user_products(self, user_id)->list[Product]:
         query = f"""
                 select {self.users_table}.user_id, products.category, products.name,
                 products.start_price, products.cur_price, products.lowest_price,
@@ -151,7 +151,7 @@ class Postgres():
         parameters = (user_id,)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
-        product_list = []
+        product_list:list[Product] = []
         for row in data:
             product_list.append(self.create_product(value=row, properties=colnames))
             
