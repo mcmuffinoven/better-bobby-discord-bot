@@ -157,13 +157,14 @@ class Postgres():
             
         return product_list
     
-    def fetch_all_users(self):
+    def fetch_all_users_id(self):
         query = f"""
                 SELECT {self.users_table}.user_id FROM {self.users_table}
         """
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=(()))
         
-        return data, colnames
+        users_list = [i[0] for i in data]
+        return users_list
     
     def check_product(self,product_name):
         query = f"""
