@@ -14,52 +14,42 @@ import functools
 import asyncio
 
 import datetime
+import os
 
+CHANNEL_ID = os.environ.get('CHANNEL_ID')
 
 log = logging.getLogger(__name__)
 UTC = datetime.timezone.utc
-ROUTINE_SCRAPE = datetime.time(hour=8, tzinfo=UTC),
+ROUTINE_SCRAPE = datetime.time(hour=1,minute=51, tzinfo=UTC)
+ALERT_MESSAGE = "Your product {product_name} is on sale for ${product_price}"
 
 class Price_tracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = Postgres(filename="utils/db_info.ini", section="postgres")
+        self.routine_product_scrape.start() # Start the TASK LOOP
+        log.info("Price Tracker Cog has started...")
 
-
-    async def alert_user(self, ctx: CustomContext, user_id):
-        await ctx.channel.send(f"<@mcmuffinoven>")
+    async def alert_user(self, channel:discord.TextChannel, user_id, message:str):
+        await channel.send(f"@{user_id} {message}")
 
     @tasks.loop(time=ROUTINE_SCRAPE)
     async def routine_product_scrape(self):
-        # multi thread
-        # 10 users, 10 products. 100 scrapes a night 
-        # time doesnt really matter i guess
-        # 1. Get all products to be scraped from every user 
-        # 2. Edit database
-            # if there is a sale
-                # overwrite sale bool 
-                # overwrite price
-                # overwrite cheapest date
-                # overwrite cheapest price
-
-        # 3. Alert user
+        
+        channel = self.bot.get_channel(CHANNEL_ID)
+        await channel.send(f"@mcmuffinoven Hello")
         scrapper = WebScrapper()
 
         users_list = self.db.fetch_all_users()
 
         for user in users_list:
+            log.info(f"Scrapping {len(users_list)} users...")
             user_products = self.db.fetch_all_user_products(user_id=user)
+            
 
             for product in user_products:
-                scrapper.scrape_product_data()
-
-        pass
-
-    def get_all_user_products(self,user_id):
-        data,colnames = self.db.fetch_all_user_products(user_id=user_id)
-
-        attrs = zip(data,colnames)
-        
+                if scrapper.is_product_sale(product, product.product_cur_price):
+                    self.alert_user(channel, user, ALERT_MESSAGE.format(product.product_name, product.product_cur_price))
 
         pass
     
@@ -115,8 +105,9 @@ class Price_tracker(commands.Cog):
             # first_col_heading=True
         )
 
-        await ctx.send(f"```Hi {cur_user} Here are your tracked products \n{output}\n```")
+        await ctx.send(f"```Hi @{cur_user} Here are your tracked products \n{output}\n```")
     
 async def setup(bot):
+    log.info(ROUTINE_SCRAPE.strftime("%H:%M"))
     await bot.add_cog(Price_tracker(bot))
     
