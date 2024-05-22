@@ -9,6 +9,7 @@ from utils.web_scrapper import WebScrapper
 import logging
 
 from utils.product import Product
+from utils.user import User
 
 # from schedule import every, repeat, run_pending
 
@@ -60,14 +61,6 @@ class Postgres():
                 print ("Exception TYPE:", type(error))
         return data, colnames
     
-    
-    def create_product(self, value, properties):
-        product = Product()
-        
-        for property_name, value in zip(properties,value):
-            setattr(product, "product_"+property_name, value)
-            
-        return product
 
     # ----- Create  ----- #
     def insert_user(self, user_id):
@@ -153,17 +146,20 @@ class Postgres():
         
         product_list:list[Product] = []
         for row in data:
-            product_list.append(self.create_product(value=row, properties=colnames))
+            product_list.append(Product.create_product(value=row, properties=colnames))
             
         return product_list
     
-    def fetch_all_users_id(self):
+    def fetch_all_users(self):
         query = f"""
-                SELECT {self.users_table}.user_id FROM {self.users_table}
+                SELECT {self.users_table}.user_id, {self.users_table}.user_name FROM {self.users_table}
         """
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=(()))
-        
-        users_list = [i[0] for i in data]
+                
+        users_list:list[User] = []
+        for row in data:
+            users_list.append(User.create_user(value=row, properties=colnames))
+            
         return users_list
     
     def check_product(self,product_name):
