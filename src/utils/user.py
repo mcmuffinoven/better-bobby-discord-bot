@@ -2,16 +2,30 @@ from table2ascii import table2ascii as t2a, PresetStyle
 
 from bot import CustomContext
 from utils.product import Product, Product_category
-from utils.postgres import Postgres
 import logging
 
 log = logging.getLogger(__name__)
 
 
 class User():
-    def __init__(self, user_id):
-        self.user_id = user_id
+    
+    @staticmethod
+    def create_user(value, properties):
+        user = User()
         
+        for property_name, value in zip(properties,value):
+            setattr(user, property_name, value)
+            
+        return user
+    
+    def __init__(self):
+        self.user_id = None
+        self.user_name = None
+        self.user_products = []
+    
+    
+    async def get_all_products_from_db(self):
+        pass
         
     async def get_all_tracked_product(self, ctx:CustomContext):
         
