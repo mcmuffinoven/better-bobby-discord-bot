@@ -7,8 +7,8 @@ import re
 import locale
 from datetime import datetime
 
-from product import Product
-
+from utils.product import Product
+from typing import Self
 
 # """General Use
 # 1. User gives a website 
@@ -38,8 +38,17 @@ class WebScrapper:
 		self.browser = webdriver.Chrome(options=WebScrapper.chrome_options)
 		# url to scrape
 		self.__scrape_url = ""
-		self.retry_limit = 5
+		self.retry_limit = 2
   
+
+	def terminate_browser(func):
+		def command(self:Self, *args, **kwargs):
+			self.set_scrape_url(args[0])
+			self.load_browser()
+			result = func(self,args[0])
+			self.browser.quit()
+			return result
+		return command
 
 	def load_browser(self):
 		# Load browser
@@ -89,9 +98,9 @@ class WebScrapper:
 			raise Exception("Element not found from given XPATH. Check if XPATH is correct")
 		
 		return element
-   
-	def get_product_current_price(self):
-		# self.browser.get(self.__scrape_url)
+
+	@terminate_browser
+	def get_product_current_price(self, product_url):
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_price']
 		retry = 0
 		product_price_raw = 0
@@ -111,9 +120,9 @@ class WebScrapper:
 			raise Exception("Failed to find product price. Please check XPATH.")
 		return product_price
   
-	# Might not be needed, since the user could provide an alias 
-	def get_product_name(self):
-		# self.browser.get(self.__scrape_url)
+	# Might not be needed, since the user could provide an alias
+	@terminate_browser
+	def get_product_name(self, product_url):
 
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_name']
 		product_name = ""
@@ -128,6 +137,7 @@ class WebScrapper:
 				continue
   
 		# self.browser.close()
+		self.terminate_session()
   
 		if not product_name:
 			raise Exception("Product name not found. Please check HTML value is correct.")
@@ -142,31 +152,37 @@ class WebScrapper:
 		return self.__scrape_url
   
 	def scrape_product_data(self, product_category, product_url, user_id):
-		self.set_scrape_url(product_url)
-		self.load_browser()
       
 		# Only applicable for the first time
 		# This should be changed
 		# Check database if this item has been added. Otherwise only fetch for current price. 
   
 
+		# For the first time 
+		initial_price = self.get_product_current_price(product_url)
+  
 		product = Product()
 		product.product_category = product_category
 		product.product_url = product_url
 		product.product_user_id = user_id
-		product.product_start_price = self.get_product_current_price()
-		product.product_cur_price = self.get_product_current_price()
-		product.product_lowest_price = self.get_product_current_price()
-		product.product_name = self.get_product_name()
+		product.product_start_price = initial_price
+		product.product_cur_price = initial_price
+		product.product_lowest_price = initial_price
+		product.product_name = self.get_product_name(product_url)
 
 		product.product_lowest_price_date = datetime.now().strftime("%Y-%m-%d")
 		product.product_tracked_since_date = datetime.now().strftime("%Y-%m-%d")
-		
-
-		self.terminate_session()
-		
+			
 		return product
+
+	def is_product_sale(self, product:Product):
+		
+		scraped_curr_price = self.get_product_current_price(product.product_url)
   
-	def terminate_session(self):
-		self.browser.quit()
+		if int(product.product_cur_price) > int(scraped_curr_price):
+			return True
+
+		else:
+			return False
+
 
