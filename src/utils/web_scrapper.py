@@ -2,12 +2,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
-from babel.numbers import parse_decimal, get_currency_symbol
 import re
 import locale
-from datetime import datetime
+import logging
 
-from utils.product import Product
 from typing import Self
 
 # """General Use
@@ -22,6 +20,7 @@ from typing import Self
 # """
 import sys
 sys.path.append('../')
+log = logging.getLogger(__name__)
 
 class WebScrapper:
     # Define Chrome Options
@@ -40,20 +39,27 @@ class WebScrapper:
 		self.__scrape_url = ""
 		self.retry_limit = 2
   
-
-	def terminate_browser(func):
+	# terminating the browser in the decorator will fail
+	def begin_scrape(func):
 		def command(self:Self, *args, **kwargs):
 			self.set_scrape_url(args[0])
 			self.load_browser()
 			result = func(self,args[0])
-			self.browser.quit()
 			return result
 		return command
+
+	def terminate_browser(self):
+		self.browser.quit()
 
 	def load_browser(self):
 		# Load browser
 		self.browser.get(self.__scrape_url)
+  
+	def set_scrape_url(self, url):
+		self.__scrape_url = url
 
+	def get_scrape_url(self):
+		return self.__scrape_url
 
 	@staticmethod
 	def check_support_url(scrape_url:str):
@@ -66,7 +72,7 @@ class WebScrapper:
             },
 			"Best Buy": {
        						"product_price": "/html/body/div[1]/div/div[2]/div[3]/section[4]/div[1]/div/div[1]/span/div/div",
-                			"product_name":'//*[@id="root"]/div/div[2]/div[3]/section[3]/div[1]/h1'
+                			"product_name":'/html/body/div[1]/div/div[2]/div[3]/section[3]/div[1]/h1'
                    		}
    }
   
@@ -80,6 +86,7 @@ class WebScrapper:
 		if value:
 			return value
 		else:
+			log.error("URL is not supported!")
 			raise Exception("URL is not supported!")
    
 	def find_element(self, attribute, value):
@@ -87,11 +94,10 @@ class WebScrapper:
 		retry = 0	
 		while retry <= self.retry_limit:
 			try:
-				# print("printing", self.browser.find_element(attribute, value))
 				element = self.browser.find_element(attribute, value).get_attribute("innerHTML")
 				break
 			except Exception as e:
-				print(e)
+				log.error(e)
 				retry += 1
 				continue
 		if not element:
@@ -99,7 +105,7 @@ class WebScrapper:
 		
 		return element
 
-	@terminate_browser
+	@begin_scrape
 	def get_product_current_price(self, product_url):
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_price']
 		retry = 0
@@ -109,7 +115,7 @@ class WebScrapper:
 				product_price_raw = self.find_element(attribute=By.XPATH, value=XPATH)
 				break
 			except Exception as e:
-				print(e)
+				log.error(e)
 				retry += 1
 				continue
 			
@@ -121,7 +127,7 @@ class WebScrapper:
 		return product_price
   
 	# Might not be needed, since the user could provide an alias
-	@terminate_browser
+	@begin_scrape
 	def get_product_name(self, product_url):
 
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_name']
@@ -132,57 +138,12 @@ class WebScrapper:
 				product_name = self.find_element(attribute=By.XPATH, value=XPATH)
 				break
 			except Exception as e:
-				print(e)
+				log.error(e)
 				retry += 1
 				continue
-  
-		# self.browser.close()
-		self.terminate_session()
   
 		if not product_name:
 			raise Exception("Product name not found. Please check HTML value is correct.")
 		
 		return product_name
-  
-  
-	def set_scrape_url(self, url):
-		self.__scrape_url = url
-
-	def get_scrape_url(self):
-		return self.__scrape_url
-  
-	def scrape_product_data(self, product_category, product_url, user_id):
-      
-		# Only applicable for the first time
-		# This should be changed
-		# Check database if this item has been added. Otherwise only fetch for current price. 
-  
-
-		# For the first time 
-		initial_price = self.get_product_current_price(product_url)
-  
-		product = Product()
-		product.product_category = product_category
-		product.product_url = product_url
-		product.product_user_id = user_id
-		product.product_start_price = initial_price
-		product.product_cur_price = initial_price
-		product.product_lowest_price = initial_price
-		product.product_name = self.get_product_name(product_url)
-
-		product.product_lowest_price_date = datetime.now().strftime("%Y-%m-%d")
-		product.product_tracked_since_date = datetime.now().strftime("%Y-%m-%d")
-			
-		return product
-
-	def is_product_sale(self, product:Product):
-		
-		scraped_curr_price = self.get_product_current_price(product.product_url)
-  
-		if int(product.product_cur_price) > int(scraped_curr_price):
-			return True
-
-		else:
-			return False
-
 
