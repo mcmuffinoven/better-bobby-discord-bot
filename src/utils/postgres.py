@@ -1,23 +1,19 @@
 # Postgres Connection Class
 
-# ----- Imports ----- #
+# ----- Package Imports ----- #
 import psycopg
 from psycopg import OperationalError
-from utils.db_parser import get_db_info
-from datetime import datetime
-from utils.web_scrapper import WebScrapper
 import logging
 
-from utils.product import Product
-from utils.user import User
-
-# from schedule import every, repeat, run_pending
+# ---- Utility Imports ----- #
+from utils.web_scrapper import WebScrapper
+from utils.db_parser import get_db_info
 
 log = logging.getLogger(__name__)
 
 class Postgres():
     # Class defaults for products
-    default_table_name = "products"
+    products_table = "products"
     users_table = "users"
     
     def __init__(self, filename='db_info.ini', section='postgres'):
@@ -32,7 +28,7 @@ class Postgres():
 
     
     @staticmethod
-    def generic_insert(connection, query, parameters):
+    def generic_insert(connection:psycopg.Connection, query:str, parameters):
         
         with connection.cursor() as cur:
 
@@ -40,14 +36,14 @@ class Postgres():
                 cur.execute(query,(*parameters,))
             
             except Exception as error:
-                print ("Oops! An exception has occured:", error)
-                print ("Exception TYPE:", type(error))
+                log.error("Oops! An exception has occured:", error)
+                log.error("Exception TYPE:", type(error))
                             
             connection.commit()
         return
     
     @staticmethod
-    def generic_fetch(connection, query, parameters):
+    def generic_fetch(connection:psycopg.Connection, query:str, parameters):
         data = None
         colnames = None
         with connection.cursor() as cur:
@@ -57,28 +53,27 @@ class Postgres():
                 data = cur.fetchall()
                 colnames = [desc[0] for desc in cur.description]
             except Exception as error:
-                print ("Oops! An exception has occured:", error)
-                print ("Exception TYPE:", type(error))
+                log.error("Oops! An exception has occured:", error)
+                log.error("Exception TYPE:", type(error))
         return data, colnames
     
 
     # ----- Create  ----- #
-    def insert_user(self, user_id):
+    def insert_user(self, user_name, user_id):
         query = f"""
                     INSERT INTO {Postgres.users_table}
-                    (user_id) values (%s) ON CONFLICT DO NOTHING;
+                    (user_id, user_name) values (%s, %s) ON CONFLICT DO NOTHING;
         """
-        print("Inserting user", user_id)
-        Postgres.generic_insert(connection=self.connection, query=query, parameters=[user_id])
+        log.info(f"Inserting {user_name}({user_id}) into the database")
+        Postgres.generic_insert(connection=self.connection, query=query, parameters=[user_id, user_name])
+        
         return
     
     # Add new product
-    def insert_product(self, product_category, product_url, user_id):
-        scrapper = WebScrapper()
-        product = scrapper.scrape_product_data(product_category=product_category, product_url=product_url, user_id=user_id)
+    def insert_product(self,**kwargs):
         
         query = f"""
-            insert into {self.default_table_name} (
+            insert into {self.products_table} (
             fk_user_id,
             category,
             name,
@@ -94,15 +89,15 @@ class Postgres():
             """
         
         # Parse Data
-        fk_user_id = product.product_user_id   
-        category = product.product_category    
-        product_name = product.product_name       
-        product_link = product.product_url
-        prod_start_price = product.product_start_price
-        prod_cur_price = product.product_cur_price
-        prod_lowest_price = product.product_lowest_price
-        lowest_prod_price_date = product.product_lowest_price_date
-        tracked_since_data = product.product_tracked_since_date
+        fk_user_id = kwargs["user_id"]   
+        category = kwargs["product_category"]    
+        product_name = kwargs["product_name"]       
+        product_link = kwargs["product_url"]
+        prod_start_price = kwargs["product_start_price"]
+        prod_cur_price = kwargs["product_cur_price"]
+        prod_lowest_price = kwargs["product_lowest_price"]
+        lowest_prod_price_date = kwargs["product_lowest_price_date"]
+        tracked_since_data = kwargs["product_tracked_since_date"]
         is_sale_bool = False
         
         parameters = (
@@ -116,7 +111,7 @@ class Postgres():
 
         Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
         
-        return product
+        return
 
 
     # ----- Read ----- #
@@ -124,31 +119,25 @@ class Postgres():
         query = f"""
                 select {self.users_table}.user_id, products.category, products.name,
                 products.start_price, products.cur_price, products.lowest_price,
-                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool from {self.default_table_name} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
+                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool from {self.products_table} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
         """
         parameters = (user_id, product_name)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
-        product = self.create_product(value=data[0], properties=colnames)
-        return product
+        return data,colnames
         
-        # return data[0],colnames
     
-    def fetch_all_user_products(self, user_id)->list[Product]:
+    def fetch_all_user_products(self, user_id):
         query = f"""
                 select {self.users_table}.user_id, products.category, products.name,
                 products.start_price, products.cur_price, products.lowest_price,
                 products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool
-                from {self.default_table_name} inner join users on products.fk_user_id = (select id from {self.users_table} where user_id = %s);
+                from {self.products_table} inner join users on products.fk_user_id = (select id from {self.users_table} where user_id = %s);
             """
         parameters = (user_id,)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
-        product_list:list[Product] = []
-        for row in data:
-            product_list.append(Product.create_product(value=row, properties=colnames))
-            
-        return product_list
+        return data, colnames
     
     def fetch_all_users(self):
         query = f"""
@@ -156,18 +145,14 @@ class Postgres():
         """
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=(()))
                 
-        users_list:list[User] = []
-        for row in data:
-            users_list.append(User.create_user(value=row, properties=colnames))
-            
-        return users_list
+        return data, colnames
     
     def check_product(self,product_name):
         query = f"""
-                SELECT EXISTS (SELECT 1 FROM {self.default_table_name} WHERE product_name = %s);
+                SELECT EXISTS (SELECT 1 FROM {self.products_table} WHERE product_name = %s);
         """
         parameters = (product_name,)
-        data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
+        data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
         return bool(data[0][0])
 
@@ -179,7 +164,7 @@ class Postgres():
         # 1. Check DB for most recent product_price
         
         query_url = f"""
-                select product_link, current_product_price from {self.default_table_name} where products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
+                select product_link, current_product_price from {self.products_table} where products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
         """
         
         parameters_url = (user_id, product_name)
@@ -196,7 +181,7 @@ class Postgres():
         # 4a. Update database with current sale price
         if is_sale:
             query = f"""
-                    UPDATE {self.default_table_name}
+                    UPDATE {self.products_table}
                     SET current_product_price = %s
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
             """
@@ -230,7 +215,7 @@ class Postgres():
         
         # Set 0 precision to exclude milliseconds
         query = f"""
-                    UPDATE {self.default_table_name}
+                    UPDATE {self.products_table}
                     SET lowest_product_price_date = NOW()::timestamptz(0)
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
         """
@@ -244,7 +229,7 @@ class Postgres():
     def update_product_sale(self, user_id, product_name, is_sale):
         
         query = f"""
-                    UPDATE {self.default_table_name}
+                    UPDATE {self.products_table}
                     SET sale_bool = %s
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
         """
@@ -261,7 +246,7 @@ class Postgres():
         
         # Get all products
         query = f"""
-                    SELECT * FROM {self.default_table_name};
+                    SELECT * FROM {self.products_table};
         """        
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=())
         
@@ -281,7 +266,7 @@ class Postgres():
     def remove_product(self, user_id, product_name):
         
         query = f"""
-                    DELETE FROM {self.default_table_name} 
+                    DELETE FROM {self.products_table} 
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
         """
         
