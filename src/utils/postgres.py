@@ -89,7 +89,7 @@ class Postgres():
             """
         
         # Parse Data
-        fk_user_id = kwargs["user_id"]   
+        fk_user_id = str(kwargs["user_id"])
         category = kwargs["product_category"]    
         product_name = kwargs["product_name"]       
         product_link = kwargs["product_url"]
@@ -107,8 +107,6 @@ class Postgres():
                         tracked_since_data, product_link, is_sale_bool
                         )     
         
-
-
         Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
         
         return
