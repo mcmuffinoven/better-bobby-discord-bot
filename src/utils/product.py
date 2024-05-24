@@ -3,7 +3,8 @@
 # Product Auto Fetching
 # Product logic to check sales
 from datetime import datetime
-# from utils.web_scrapper import WebScrapper
+from utils.web_scrapper import WebScrapper
+from utils.postgres import Postgres
 
 # import discord
 # from discord.ext import commands
@@ -46,15 +47,40 @@ class Product():
         # self.product_sale = self.is_product_sale()
 
 
-    def set_attriutes(self, attrs):
-        pass
-
+    def scrape_product(self, product_category, product_url, user_id):
+        # Create a scrapper to scrape for the current product details
+        scrapper = WebScrapper()
         
+        initial_price = scrapper.get_product_current_price(product_url)
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        self.product_category = product_category
+        self.product_url = product_url
+        self.product_user_id = user_id
+        self.product_start_price = initial_price
+        self.product_cur_price = initial_price
+        self.product_lowest_price = initial_price
+        self.product_name = scrapper.get_product_name(product_url)
+
+        self.product_lowest_price_date = current_date
+        self.product_tracked_since_date = current_date
+        
+        # Can't terminate browser before returing the data. Need to do it after
+        scrapper.terminate_browser()
+    
     def is_product_sale(self):
-        # 1. Get Current Price 
-        # 2. Check database of latest price 
-        # 3. Check if lower
-        return
+
+        scrapper = WebScrapper()
+        scraped_curr_price = scrapper.get_product_current_price(self.product_url)
+
+        if int(self.product_cur_price) > int(scraped_curr_price):
+            db = Postgres()
+            db.update_product_info()
+            return True
+
+        else:
+            return False
+        
     
     def get_lowest_price(self):
         # 1. Get Current Price 
