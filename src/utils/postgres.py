@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 
 class Postgres():
     # Class defaults for products
-    products_table = "products"
-    users_table = "users"
+    products_table = "products_a"
+    users_table = "users_a"
     
     def __init__(self, filename='db_info.ini', section='postgres'):
         params = get_db_info(filename,section)
@@ -37,7 +37,7 @@ class Postgres():
             
             except Exception as error:
                 log.error("Oops! An exception has occured:", error)
-                log.error("Exception TYPE:", type(error))
+                # log.error("Exception TYPE:", type(error))
                             
             connection.commit()
         return
@@ -48,7 +48,6 @@ class Postgres():
         colnames = None
         with connection.cursor() as cur:
             try:
-                # print(query, parameters)
                 cur.execute(query,(*parameters,))
                 data = cur.fetchall()
                 colnames = [desc[0] for desc in cur.description]
@@ -71,7 +70,7 @@ class Postgres():
     
     # Add new product
     def insert_product(self,**kwargs):
-        
+        print(self.check_product(kwargs["product_name"]))
         query = f"""
             insert into {self.products_table} (
             fk_user_id,
@@ -85,7 +84,8 @@ class Postgres():
             url,
             sale_bool
             )
-            values ((SELECT id from users where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s);
+            values ((SELECT id from {self.users_table} where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT DO NOTHING;
             """
         
         # Parse Data
@@ -115,9 +115,9 @@ class Postgres():
     # ----- Read ----- #
     def fetch_product(self, product_name, user_id):
         query = f"""
-                select {self.users_table}.user_id, products.category, products.name,
-                products.start_price, products.cur_price, products.lowest_price,
-                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool from {self.products_table} inner join users on products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
+                select {self.users_table}.user_id, {self.products_table}.category, {self.products_table}.name,
+                {self.products_table}.start_price, {self.products_table}.cur_price, {self.products_table}.lowest_price,
+                {self.products_table}.lowest_price_date, {self.products_table}.tracked_since_date, {self.products_table}.url, {self.products_table}.sale_bool from {self.products_table} inner join users on {self.products_table}.fk_user_id = (select id from {self.users_table} where user_id = %s) and {self.products_table}.name = %s;
         """
         parameters = (user_id, product_name)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
@@ -125,17 +125,41 @@ class Postgres():
         return data,colnames
         
     
-    def fetch_all_user_products(self, user_id):
-        query = f"""
-                select {self.users_table}.user_id, products.category, products.name,
-                products.start_price, products.cur_price, products.lowest_price,
-                products.lowest_price_date, products.tracked_since_date, products.url, products.sale_bool
-                from {self.products_table} inner join users on products.fk_user_id = (select id from {self.users_table} where user_id = %s);
-            """
-        parameters = (user_id,)
+    def fetch_all_user_products(self, user_id:str, table_view = False):
+        if not table_view:
+            query = f"""
+                    select {self.users_table}.user_id, {self.products_table}.category, {self.products_table}.name,
+                    {self.products_table}.start_price, {self.products_table}.cur_price, {self.products_table}.lowest_price,
+                    {self.products_table}.lowest_price_date, {self.products_table}.tracked_since_date, {self.products_table}.url, {self.products_table}.sale_bool
+                    from {self.products_table} inner join {self.users_table} on {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
+                """
+        
+        else:
+            # Same query except omitting some colums. the name is too long, it takes a lot of display area in order to keep the text from being distorted. 
+            # any long product names will cause this issue anyways
+            query = f"""
+                    select {self.products_table}.name,
+                    {self.products_table}.start_price, {self.products_table}.cur_price, {self.products_table}.sale_bool
+                    from {self.products_table} inner join {self.users_table} on {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
+                """
+            
+        parameters = (str(user_id),)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
-        return data, colnames
+        
+        if not table_view:
+            return data, colnames
+        
+        else:
+            
+            url_query = f"""
+                        select {self.products_table}.url from {self.products_table} where {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
+                        """
+                        
+            parameters = (str(user_id),)
+            url_list, url_col = Postgres.generic_fetch(connection=self.connection, query=url_query, parameters=list(parameters))
+            
+            return data, colnames, url_list
     
     def fetch_all_users(self):
         query = f"""
@@ -147,22 +171,23 @@ class Postgres():
     
     def check_product(self,product_name):
         query = f"""
-                SELECT EXISTS (SELECT 1 FROM {self.products_table} WHERE product_name = %s);
+                SELECT EXISTS (SELECT 1 FROM {self.products_table} WHERE {self.products_table}.name = %s);
         """
         parameters = (product_name,)
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
         
         return bool(data[0][0])
-
+    
     # ----- Update ----- #
 
     # Update product price
+    # to be fixed
     def update_current_product_price(self, product_name, user_id):
         
         # 1. Check DB for most recent product_price
         
         query_url = f"""
-                select product_link, current_product_price from {self.products_table} where products.fk_user_id = (select id from users where user_id = %s) and products.name = %s;
+                select product_link, current_product_price from {self.products_table} where {self.products_table}.fk_user_id = (select id from {self.users_table} where user_id = %s) and {self.products_table}.name = %s;
         """
         
         parameters_url = (user_id, product_name)
@@ -171,7 +196,6 @@ class Postgres():
         # 2. Get the current product price via scraping
         web_scrapper = WebScrapper(scrape_url=url)
         current_product_price = web_scrapper.get_product_current_price()
-        web_scrapper.terminate_session()
         
         # 3. Check if there is a sale
         is_sale = float(current_product_price) < float(prev_product_price)
@@ -229,7 +253,7 @@ class Postgres():
         query = f"""
                     UPDATE {self.products_table}
                     SET sale_bool = %s
-                    WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
+                    WHERE fk_user_id = (SELECT id from {self.users_table} where user_id=%s) AND product_name = %s
         """
         parameters = (is_sale, user_id, product_name)
         
@@ -244,7 +268,7 @@ class Postgres():
         
         # Get all products
         query = f"""
-                    SELECT * FROM {self.products_table};
+                    SELECT * FROM {self.products_table}.;
         """        
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=())
         
