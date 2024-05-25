@@ -1,26 +1,24 @@
 import discord
 from discord.ext import commands, tasks
 from bot import CustomContext
-from utils.product import Product, Product_category
-from utils.postgres import Postgres
 import logging
 from table2ascii import table2ascii as t2a, PresetStyle
-from utils.user import User
-
-from utils.web_scrapper import WebScrapper
-
 import typing
 import functools
 import asyncio
-
 import datetime
 import os
 
-CHANNEL_ID = os.environ.get('CHANNEL_ID')
+from utils.product import Product, Product_category
+from utils.postgres import Postgres
+from utils.user import User
+
+
+CHANNEL_ID = int(os.environ.get('CHANNEL_ID'))
 
 log = logging.getLogger(__name__)
 UTC = datetime.timezone.utc
-ROUTINE_SCRAPE = datetime.time(hour=14,minute=18)
+ROUTINE_SCRAPE = datetime.time(hour=0,minute=00)
 ALERT_MESSAGE = "Your product {product_name} is on sale for ${product_price}"
 
 class Price_tracker(commands.Cog):
@@ -29,15 +27,14 @@ class Price_tracker(commands.Cog):
         self.db = Postgres(filename="utils/db_info.ini", section="postgres")
         self.routine_product_scrape.start() # Start the TASK LOOP
 
-    async def alert_user(self, channel:discord.TextChannel, user_id, message:str):
-        await channel.send(f"<@{user_id}> {message}")
+    async def alert_user(self, channel:discord.TextChannel, user:User, message:str):
+        await channel.send(f"<@{user.user_id}> {message}")
         
-    # @tasks.loop(time=ROUTINE_SCRAPE)
-    @tasks.loop(minutes=5)
+    @tasks.loop(time=ROUTINE_SCRAPE)
+    # @tasks.loop(minutes=5)
     async def routine_product_scrape(self):
         
         channel = self.bot.get_channel(CHANNEL_ID)
-
         users_list = self.get_all_users()
 
         for user in users_list:
@@ -49,8 +46,8 @@ class Price_tracker(commands.Cog):
             for product in user_products:
                 log.info(f"Checking {product.product_name} for sale...")
                 if product.is_product_sale():
-                    # await self.alert_user(channel, user, ALERT_MESSAGE.format(product.product_name, product.product_cur_price))
-                    await self.alert_user(channel, user.user_id, "SALE")
+                    pass
+                    await self.alert_user(channel, user, ALERT_MESSAGE.format(product_name = product.product_name, product_price = product.product_cur_price))
                     
         log.info("Routine Scrape Complete")
 
@@ -85,6 +82,10 @@ class Price_tracker(commands.Cog):
 
     @commands.command(name="track_product")
     async def track_product(self, ctx: CustomContext, product_category:str=None, product_url:str=None):
+        """Adds a product from a website to track for sales.
+           Categories: Tech/Grocery/Cosmetic/Fashion
+           Example: -track_product tech https:www.bestbuy.com/eggroll>bobby
+        """
         # Validate user inputs before scrapping
         if not product_category:
             await ctx.send("You forgot the product category")
@@ -97,14 +98,14 @@ class Price_tracker(commands.Cog):
         
         try:            
             product:Product = await self.scrape_product(product_category, product_url, ctx.message.author.name, ctx.message.author.id)
-            await ctx.send(f'Adding {product.product_name} with starting price {product.product_cur_price} to the database. You will receive a message when this item is on sale.' )
+            await ctx.send(f'<@{ctx.message.author.id}> Adding {product.product_name} with starting price {product.product_cur_price} to the database. You will receive a message when this item is on sale.' )
     
         except Exception as e:
             log.error(e)
             await ctx.send(f'Error adding {product.product_name}')
     
     
-    def get_all_user_products(self, user_id):
+    def get_all_user_products(self, user_id:str):
         
         data, colnames = self.db.fetch_all_user_products(user_id)
         
@@ -124,20 +125,33 @@ class Price_tracker(commands.Cog):
             
         return users_list
     
-    @commands.command(name="get_product")
+    @commands.command(name="get_my_products")
     async def get_all(self,ctx: CustomContext):
-        cur_user = User(ctx.author)
+        """Returns a table of all your currently tracked items
+        WIP
+        """
+        cur_user_id = ctx.message.author.id
         
         # Fetch from Database
-        user_products = self.db.fetch_all_user_products(cur_user)
+        data, colnames, url_list = self.db.fetch_all_user_products(cur_user_id, table_view=True)
+        
+        # Need to process data/colnames because URL is too long, it will not display on the table
+        # display the urls as a separate message
+        # data, colnames, url_list = self.filter_data_for_display(raw_data,raw_colnames)
         
         output = t2a(
-            header=["ID", "Product Name", "Category", "Current Price", "Starting Price", "Lowest Price", "Lowest Price Date", "Sale"],
-            body=[[1, 'Team A', 'Tech', 100, 50, 200, '2024-01-01', 'Yes'], [2, 'Team B', 'Fashion', 100, 50, 200, '2024-01-01', 'Yes'], [3, 'Team C', 'Grocery', 200, 50, 200, '2024-01-01', 'No']],
+            header = colnames,
+            body = data,
+            # header=["ID", "Product Name", "Category", "Current Price", "Starting Price", "Lowest Price", "Lowest Price Date", "Sale"],
+            # body=[(1, 'Team A', 'Tech', 100, 50, 200, '2024-01-01', 'Yes'), [2, 'Team B', 'Fashion', 100, 50, 200, '2024-01-01', 'Yes'], [3, 'Team C', 'Grocery', 200, 50, 200, '2024-01-01', 'No']],
             # first_col_heading=True
         )
 
-        await ctx.send(f"```Hi @{cur_user} Here are your tracked products \n{output}\n```")
+        await ctx.send(f"<@{cur_user_id}>```Here are your tracked products \n{output}\n```")
+        await ctx.send(f"Here are the urls for your products")
+        
+        for index, url in enumerate(url_list):
+            await ctx.send(f"{index+1}. {url[0]}")
     
 async def setup(bot):
     await bot.add_cog(Price_tracker(bot))
