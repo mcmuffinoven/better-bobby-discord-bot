@@ -38,14 +38,6 @@ class Product():
         self.product_tracked_since_date = None
         self.product_url = None
         self.product_sale_bool = None
-        
-        # # Scrape Related Functions
-        # self.product_name = WebScrapper.get_product_name()
-        # self.product_start_price = WebScrapper.get_product_current_price()
-        # self.product_cur_price = WebScrapper.get_product_current_price()
-        # self.product_lowest_price, self.product_lowest_price_date = self.get_lowest_price()
-        # self.product_sale = self.is_product_sale()
-
 
     def scrape_product(self, product_category, product_url, user_id):
         # Create a scrapper to scrape for the current product details
@@ -74,7 +66,7 @@ class Product():
         scraped_curr_price = scrapper.get_product_current_price(self.product_url)
 
         if int(self.product_cur_price) > int(scraped_curr_price):
-            db = Postgres()
+            db = Postgres(filename="utils/db_info.ini", section="postgres")
             db.update_product_info()
             return True
 
