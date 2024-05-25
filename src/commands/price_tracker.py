@@ -135,16 +135,11 @@ class Price_tracker(commands.Cog):
         # Fetch from Database
         data, colnames, url_list = self.db.fetch_all_user_products(cur_user_id, table_view=True)
         
-        # Need to process data/colnames because URL is too long, it will not display on the table
-        # display the urls as a separate message
-        # data, colnames, url_list = self.filter_data_for_display(raw_data,raw_colnames)
-        
         output = t2a(
             header = colnames,
             body = data,
             # header=["ID", "Product Name", "Category", "Current Price", "Starting Price", "Lowest Price", "Lowest Price Date", "Sale"],
             # body=[(1, 'Team A', 'Tech', 100, 50, 200, '2024-01-01', 'Yes'), [2, 'Team B', 'Fashion', 100, 50, 200, '2024-01-01', 'Yes'], [3, 'Team C', 'Grocery', 200, 50, 200, '2024-01-01', 'No']],
-            # first_col_heading=True
         )
 
         await ctx.send(f"<@{cur_user_id}>```Here are your tracked products \n{output}\n```")
