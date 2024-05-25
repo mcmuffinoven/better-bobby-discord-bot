@@ -268,7 +268,7 @@ class Postgres():
         
         # Get all products
         query = f"""
-                    SELECT * FROM {self.products_table}.;
+                    SELECT * FROM {self.products_table};
         """        
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=())
         
