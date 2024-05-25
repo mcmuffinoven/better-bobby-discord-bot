@@ -31,11 +31,11 @@ class WebScrapper:
 	chrome_options.add_argument('--ignore-certificate-errors-spki-list')
 	# chrome_options.add_argument('--headless')
 	chrome_options.add_argument('--log-level=3')
+	chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
 	decimal_point_char = locale.localeconv()['decimal_point']
  
 	def __init__(self):
 		self.browser = webdriver.Chrome(options=WebScrapper.chrome_options)
-		# url to scrape
 		self.__scrape_url = ""
 		self.retry_limit = 2
   
