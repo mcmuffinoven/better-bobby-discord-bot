@@ -81,9 +81,8 @@ class Price_tracker(commands.Cog):
 
 
     @commands.command(name="track_product")
-    async def track_product(self, ctx: CustomContext, product_category:str=None, product_url:str=None):
+    async def track_product(self, ctx: CustomContext, product_category:str = commands.parameter(default=None, description="Either one of Tech/Grocery/Fashion/Cosmetics"), product_url:str=commands.parameter(default=None, description="Link to the product. Only best buy for now.")):
         """Adds a product from a website to track for sales.
-           Categories: Tech/Grocery/Cosmetic/Fashion
            Example: -track_product tech https:www.bestbuy.com/eggroll>bobby
         """
         # Validate user inputs before scrapping
@@ -128,7 +127,6 @@ class Price_tracker(commands.Cog):
     @commands.command(name="get_my_products")
     async def get_all(self,ctx: CustomContext):
         """Returns a table of all your currently tracked items
-        WIP
         """
         cur_user_id = ctx.message.author.id
         
