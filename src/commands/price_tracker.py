@@ -88,12 +88,15 @@ class Price_tracker(commands.Cog):
         # Validate user inputs before scrapping
         if not product_category:
             await ctx.send("You forgot the product category")
+            return
         else:
             if product_category.upper() not in list(Product_category.__members__.keys()):
                 await ctx.send(f"Please choose a category from: {', '.join(list(Product_category.__members__.keys()))}")
+                return
         
         if not product_url:
             await ctx.send("You forgot the product link")
+            return
         
         try:            
             product:Product = await self.scrape_product(product_category, product_url, ctx.message.author.name, ctx.message.author.id)
