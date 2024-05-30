@@ -1,5 +1,3 @@
-# Postgres Connection Class
-
 # ----- Package Imports ----- #
 import psycopg
 from psycopg import OperationalError
@@ -12,11 +10,23 @@ from utils.db_parser import get_db_info
 log = logging.getLogger(__name__)
 
 class Postgres():
-    # Class defaults for products
-    products_table = "products_a"
-    users_table = "users_a"
-    
+    '''
+    Postgres class used to interact with a PostgreSQL database
+    '''
+
+    # Table names
+    products_table = "products"
+    users_table = "users"
+
     def __init__(self, filename='db_info.ini', section='postgres'):
+        '''
+        Sets up the connection object on init
+
+        Args:
+            filename (str): file with database configurations
+            section (str): section in the file with the databse configuration
+
+        '''
         params = get_db_info(filename,section)
         try:
             self.connection = psycopg.connect(**params)
@@ -24,26 +34,47 @@ class Postgres():
 
         except OperationalError:
             log.info("Error connecting to the database :/")
-        pass
 
-    
+
     @staticmethod
     def generic_insert(connection:psycopg.Connection, query:str, parameters):
-        
+        '''
+        Helper function for any generic insert operation
+
+        Args:
+            connection (psycopg.Connection): connection object to the databse
+            query (str): the query to be sent
+            parameters (tuple): the parameters of the query to be sent to the database
+
+        Returns:
+            None
+        '''
         with connection.cursor() as cur:
 
             try:
                 cur.execute(query,(*parameters,))
-            
+
             except Exception as error:
                 log.error("Oops! An exception has occured:", error)
                 # log.error("Exception TYPE:", type(error))
-                            
+
             connection.commit()
         return
-    
+
     @staticmethod
     def generic_fetch(connection:psycopg.Connection, query:str, parameters):
+        '''
+        Helper function for any generic fetch operation
+
+        Args:
+            connection (psycopg.Connection): connection object to the databse
+            query (str): the query to be sent
+            parameters (tuple): the parameters of the query to be sent to the database
+
+        Returns:
+            data (list): list of tuples containing each row of data returned from the query
+            colnames (list): list of the names of each column from the query
+        '''
         data = None
         colnames = None
         with connection.cursor() as cur:
@@ -55,7 +86,7 @@ class Postgres():
                 log.error("Oops! An exception has occured:", error)
                 log.error("Exception TYPE:", type(error))
         return data, colnames
-    
+
 
     # ----- Create  ----- #
     def insert_user(self, user_name, user_id):
@@ -63,14 +94,16 @@ class Postgres():
                     INSERT INTO {Postgres.users_table}
                     (user_id, user_name) values (%s, %s) ON CONFLICT DO NOTHING;
         """
-        log.info(f"Inserting {user_name}({user_id}) into the database")
+        log.info(f"Inserting {user_name} ({user_id}) into the database")
         Postgres.generic_insert(connection=self.connection, query=query, parameters=[user_id, user_name])
-        
+
         return
-    
-    # Add new product
+
     def insert_product(self,**kwargs):
-        print(self.check_product(kwargs["product_name"]))
+        # Can implement an already exist exception to message the user back.
+        if self.check_product(kwargs["product_name"]):
+            return
+
         query = f"""
             insert into {self.products_table} (
             fk_user_id,
@@ -87,11 +120,11 @@ class Postgres():
             values ((SELECT id from {self.users_table} where user_id=%s),%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT DO NOTHING;
             """
-        
+
         # Parse Data
         fk_user_id = str(kwargs["user_id"])
-        category = kwargs["product_category"]    
-        product_name = kwargs["product_name"]       
+        category = kwargs["product_category"]
+        product_name = kwargs["product_name"]
         product_link = kwargs["product_url"]
         prod_start_price = kwargs["product_start_price"]
         prod_cur_price = kwargs["product_cur_price"]
@@ -99,16 +132,16 @@ class Postgres():
         lowest_prod_price_date = kwargs["product_lowest_price_date"]
         tracked_since_data = kwargs["product_tracked_since_date"]
         is_sale_bool = False
-        
+
         parameters = (
-                        fk_user_id, category, product_name, 
-                        prod_start_price, prod_cur_price, 
+                        fk_user_id, category, product_name,
+                        prod_start_price, prod_cur_price,
                         prod_lowest_price, lowest_prod_price_date,
                         tracked_since_data, product_link, is_sale_bool
-                        )     
-        
+                        )
+
         Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
-        
+
         return
 
 
@@ -121,10 +154,10 @@ class Postgres():
         """
         parameters = (user_id, product_name)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
-        
+
         return data,colnames
-        
-    
+
+
     def fetch_all_user_products(self, user_id:str, table_view = False):
         if not table_view:
             query = f"""
@@ -133,73 +166,73 @@ class Postgres():
                     {self.products_table}.lowest_price_date, {self.products_table}.tracked_since_date, {self.products_table}.url, {self.products_table}.sale_bool
                     from {self.products_table} inner join {self.users_table} on {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
                 """
-        
+
         else:
-            # Same query except omitting some colums. the name is too long, it takes a lot of display area in order to keep the text from being distorted. 
+            # Same query except omitting some columns, the name is too long, it takes a lot of display area in order to keep the text from being distorted.
             # any long product names will cause this issue anyways
             query = f"""
                     select {self.products_table}.name,
                     {self.products_table}.start_price, {self.products_table}.cur_price, {self.products_table}.sale_bool
                     from {self.products_table} inner join {self.users_table} on {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
                 """
-            
+
         parameters = (str(user_id),)
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
-        
-        
+
+
         if not table_view:
             return data, colnames
-        
+
         else:
-            
+
             url_query = f"""
                         select {self.products_table}.url from {self.products_table} where {self.products_table}.fk_user_id = (select {self.users_table}.id from {self.users_table} where user_id = %s);
                         """
-                        
+
             parameters = (str(user_id),)
             url_list, url_col = Postgres.generic_fetch(connection=self.connection, query=url_query, parameters=list(parameters))
-            
+
             return data, colnames, url_list
-    
+
     def fetch_all_users(self):
         query = f"""
                 SELECT {self.users_table}.user_id, {self.users_table}.user_name FROM {self.users_table}
         """
         data, colnames = Postgres.generic_fetch(connection=self.connection, query=query, parameters=(()))
-                
+
         return data, colnames
-    
+
     def check_product(self,product_name):
         query = f"""
                 SELECT EXISTS (SELECT 1 FROM {self.products_table} WHERE {self.products_table}.name = %s);
         """
         parameters = (product_name,)
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=list(parameters))
-        
+
         return bool(data[0][0])
-    
+
     # ----- Update ----- #
 
     # Update product price
     # to be fixed
     def update_current_product_price(self, product_name, user_id):
-        
+
         # 1. Check DB for most recent product_price
-        
+
         query_url = f"""
                 select product_link, current_product_price from {self.products_table} where {self.products_table}.fk_user_id = (select id from {self.users_table} where user_id = %s) and {self.products_table}.name = %s;
         """
-        
+
         parameters_url = (user_id, product_name)
         url, prev_product_price = Postgres.generic_fetch(connection=self.connection, query=query_url, parameters=list(parameters_url))[0]
 
         # 2. Get the current product price via scraping
         web_scrapper = WebScrapper(scrape_url=url)
         current_product_price = web_scrapper.get_product_current_price()
-        
+
         # 3. Check if there is a sale
         is_sale = float(current_product_price) < float(prev_product_price)
-        
+
         # 4a. Update database with current sale price
         if is_sale:
             query = f"""
@@ -210,13 +243,13 @@ class Postgres():
             print("Sale!")
             parameters = (current_product_price,user_id, product_name)
             Postgres.generic_insert(connection=self.connection, query=query, parameters=list(parameters))
-            
+
             # 5. Update sales column in DB
             self.update_product_sale(user_id, product_name, is_sale)
-            
+
             # 6. Update lowest product price and date
             self.update_lowest_product_date(user_id, product_name, current_product_price)
-            
+
             # 7. Alert user of sale via mail
             product = {}
             product["current_price"] = current_product_price
@@ -224,17 +257,17 @@ class Postgres():
             product["product_name"] = product_name
             product["user_id"] = "Test User"
             self.mailer.gmail_send_message(self.mailer_creds, product)
-        
+
         # 4b. Do nothing if no sale
         else:
             print("No Sale!")
             return
-        
+
         return
-    
+
     # Update lowest_product_price and lowest_producT_price_date
     def update_lowest_product_date(self, user_id, product_name, current_product_price):
-        
+
         # Set 0 precision to exclude milliseconds
         query = f"""
                     UPDATE {self.products_table}
@@ -242,61 +275,60 @@ class Postgres():
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
         """
         parameters = (current_product_price, user_id, product_name)
-        
+
         Postgres.generic_insert(connection=self.connection, query=query, parameters=parameters)
         return
-    
-    
+
+
     # Update is_sale bool
     def update_product_sale(self, user_id, product_name, is_sale):
-        
+
         query = f"""
                     UPDATE {self.products_table}
                     SET sale_bool = %s
                     WHERE fk_user_id = (SELECT id from {self.users_table} where user_id=%s) AND product_name = %s
         """
         parameters = (is_sale, user_id, product_name)
-        
+
         Postgres.generic_insert(connection=self.connection, query=query, parameters=parameters)
-        
+
         return
-    
+
     # Updates all products for all users
     def update_all_product_prices(self):
         """ Query for all products regardless of user and runs update_current_product_price on it
         """
-        
+
         # Get all products
         query = f"""
                     SELECT * FROM {self.products_table};
-        """        
+        """
         data, _ = Postgres.generic_fetch(connection=self.connection, query=query, parameters=())
-        
+
         for row in data:
             user_id = row[1]
             product_name = row[3]
-            
+
             self.update_current_product_price(product_name=product_name, user_id=user_id)
         return
-    
+
     # Update entire row
     def update_product_info(self):
         return
-    
+
     # ----- Delete  ----- #
     # Delete row
     def remove_product(self, user_id, product_name):
-        
+
         query = f"""
-                    DELETE FROM {self.products_table} 
+                    DELETE FROM {self.products_table}
                     WHERE fk_user_id = (SELECT id from users where user_id=%s) AND product_name = %s
         """
-        
+
         parameters = (user_id, product_name)
-        
+
         Postgres.generic_insert(connection=self.connection, query=query, parameters=parameters)
-        
+
         return
-    
-    
-    
+
+
