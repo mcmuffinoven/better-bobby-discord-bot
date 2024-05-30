@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5444:5432'
+    volumes: 
+      - db:/home/homepi/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  bot:
+    image: .
+    environment:
+      - API_TOKEN=${API_TOKEN}
+      - CHANNEL_ID=${CHANNEL_ID}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  db:
+    driver: local
