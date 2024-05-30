@@ -1,46 +1,56 @@
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.support.wait import WebDriverWait
 
 import re
 import locale
 import logging
+import atexit
 
 from typing import Self
 
-# """General Use
-# 1. User gives a website 
-# 2. Inserts the category
-# 3. User can choose an amount to alert them on. (Or just alert when price drops)
-# 4. Create new objects for the items 
-# 5. Push into database 
-# 6. Periodically, check against the website and database 
-# 7. If lower, update database, and alert user.
-# 8. Else, wait until next check period. 
-# """
 import sys
 sys.path.append('../')
 log = logging.getLogger(__name__)
 
+# Terminate browser session on exit to prevent memory leaks
+def terminate_browser_on_exit():
+	scrapper = WebScrapper()
+	scrapper.browser.quit()
+
+atexit.register(terminate_browser_on_exit)
+
 class WebScrapper:
-    # Define Chrome Options
-	chrome_options = Options()
-	chrome_options.add_argument('--no-sandbox')
-	chrome_options.add_argument('--disable-dev-shm-usage')
-	# Ignore SSL error when selenium makes handshake with chrome. 
-	chrome_options.add_argument('--ignore-certificate-errors-spki-list')
-	# chrome_options.add_argument('--headless')
-	chrome_options.add_argument('--log-level=3')
-	chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+	'''
+	WebScrapper class contains methods used for setting up Selenium and scrapping the web
+	Note: Firefox-esr is the browser being used along with geckodriver.
+		  Chrome cannot be used as arm7 does not currently have official support
+	'''
+
+	# Define Firefox Service
+	service = Service('/usr/bin/geckodriver') # CHANGE THIS IF NECASSARY. Binary location of the geckodriver.
+
+	# Define Firefox Options
+	firefox_options = Options()
+	firefox_options.binary_location = r'/usr/bin/firefox-esr' # CHANGE THIS IF NECASSARY. Binary location of the firefox browser.
+	firefox_options.add_argument('--headless') # Hides the browser
 	decimal_point_char = locale.localeconv()['decimal_point']
- 
+
 	def __init__(self):
-		self.browser = webdriver.Chrome(options=WebScrapper.chrome_options)
+		self.browser = webdriver.Firefox(service=WebScrapper.service, options=WebScrapper.firefox_options)
 		self.__scrape_url = ""
 		self.retry_limit = 2
-  
-	# terminating the browser in the decorator will fail
+
 	def begin_scrape(func):
+		'''
+		Decorator for general webscrapping
+		1. Sets the url to scrape
+		2. Loads the browser to scrape
+
+		Note: Browser cannot be terminated until the function returns, hence it is not included in the decorator
+		'''
 		def command(self:Self, *args, **kwargs):
 			self.set_scrape_url(args[0])
 			self.load_browser()
@@ -48,13 +58,18 @@ class WebScrapper:
 			return result
 		return command
 
-	def terminate_browser(self):
-		self.browser.quit()
+	def close_browser(self):
+		try:
+			self.browser.close()
+		except Exception as e:
+			log.error(e)
 
 	def load_browser(self):
-		# Load browser
-		self.browser.get(self.__scrape_url)
-  
+		try:
+			self.browser.get(self.__scrape_url)
+		except Exception as e:
+			log.error(e)
+
 	def set_scrape_url(self, url):
 		self.__scrape_url = url
 
@@ -63,38 +78,56 @@ class WebScrapper:
 
 	@staticmethod
 	def check_support_url(scrape_url:str):
-		# Dict of all supported links
-  
+		'''
+		Verifies the url against the list of currently supported urls
+
+		Args:
+			scrape_url (str): url to be scrapped
+
+		Returns:
+			value (dict): dictionary containing XPATHs for currently support websites
+		'''
+
+		# Move these to a separate file eventually
 		valid_url_dict = {
 			"Amazon": {
 							"product_price": "/html/body/div[2]/div/div[7]/div[4]/div[4]/div[12]/div/div/div[1]/div/div[3]/div[1]/span[3]/span[2]/span[2]/text()",
 							"product_name": "/html/body/div[2]/div/div[7]/div[4]/div[4]/div[1]/div/h1/span[1]/text()"
-            },
+			},
 			"Best Buy": {
-       						"product_price": "/html/body/div[1]/div/div[2]/div[3]/section[4]/div[1]/div/div[1]/span/div/div",
-                			"product_name":'/html/body/div[1]/div/div[2]/div[3]/section[3]/div[1]/h1'
-                   		}
+	   						"product_price": "/html/body/div[1]/div/div[2]/div[3]/section[4]/div[1]/div/div[1]/span/div/div",
+							"product_name":'/html/body/div[1]/div/div[2]/div[3]/section[3]/div[1]/h1'
+				   		}
    }
-  
-		# Not en efficient way, when there are many supported urls
+
+		# Not en efficient way, if there are many supported urls (Use match case)
 		if scrape_url.find("amazon") != -1:
 			value = valid_url_dict["Amazon"]
 		elif scrape_url.find("bestbuy") != -1:
 			value = valid_url_dict["Best Buy"]
 
-		
+
 		if value:
 			return value
 		else:
 			log.error("URL is not supported!")
 			raise Exception("URL is not supported!")
-   
-	def find_element(self, attribute, value):
 
-		retry = 0	
+	def find_element(self, attribute:By, value:str):
+		'''
+		Scrapes the current browser for a given attribute and value
+
+		Args:
+			attribute (selenium.webdriver.common.by): By class from selenium (XPATH, CSS, CLASS, etc)
+			value (str): Value of the attribute to scrape by. E.g. (For XPATH attribute, value = /html/body/div[1])
+
+		Returns:
+			element : element scrapped
+		'''
+		retry = 0
 		while retry <= self.retry_limit:
 			try:
-				element = self.browser.find_element(attribute, value).get_attribute("innerHTML")
+				element = WebDriverWait(self.browser, 10).until(lambda x: x.find_element(attribute, value)).get_attribute("innerHTML")
 				break
 			except Exception as e:
 				log.error(e)
@@ -102,11 +135,20 @@ class WebScrapper:
 				continue
 		if not element:
 			raise Exception("Element not found from given XPATH. Check if XPATH is correct")
-		
+
 		return element
 
 	@begin_scrape
 	def get_product_current_price(self, product_url):
+		'''
+		Scrapes for the current price of the product from the product_url
+
+		Args:
+			product_url (str): url of product to be scrapped
+
+		Returns:
+			product_price (float): price of the product
+		'''
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_price']
 		retry = 0
 		product_price_raw = 0
@@ -118,17 +160,25 @@ class WebScrapper:
 				log.error(e)
 				retry += 1
 				continue
-			
-  
+
+
 		# Strip everything except decimal and digit, then convert to float
 		product_price = float(re.sub(r'[^0-9'+self.decimal_point_char+r']+', '', product_price_raw))
 		if product_price == 0:
 			raise Exception("Failed to find product price. Please check XPATH.")
 		return product_price
-  
-	# Might not be needed, since the user could provide an alias
+
 	@begin_scrape
 	def get_product_name(self, product_url):
+		'''
+		Scrapes for the name of the product from the product_url
+
+		Args:
+			product_url (str): url of product to be scrapped
+
+		Returns:
+			product_name (str): name of the product
+		'''
 
 		XPATH = WebScrapper.check_support_url(self.__scrape_url)['product_name']
 		product_name = ""
@@ -141,9 +191,9 @@ class WebScrapper:
 				log.error(e)
 				retry += 1
 				continue
-  
+
 		if not product_name:
 			raise Exception("Product name not found. Please check HTML value is correct.")
-		
+
 		return product_name
 
