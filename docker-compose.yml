@@ -9,12 +9,12 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - '5444:5432'
-    volumes: 
+    volumes:
       - db:/home/homepi/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   bot:
-    image: .
+    image: better-bobby-bot
     environment:
       - API_TOKEN=${API_TOKEN}
       - CHANNEL_ID=${CHANNEL_ID}
