@@ -66,6 +66,9 @@ class Product():
         self.product_lowest_price_date = current_date # This needs to be changed later
         self.product_tracked_since_date = current_date
 
+        # Close browser to avoid problems when reconnecting to the same scrapper object
+        scrapper.close_browser()
+
     def is_product_sale(self):
         '''
         Checks if the current product is on sale
