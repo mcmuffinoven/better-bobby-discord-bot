@@ -15,13 +15,6 @@ import sys
 sys.path.append('../')
 log = logging.getLogger(__name__)
 
-# Terminate browser session on exit to prevent memory leaks
-def terminate_browser_on_exit():
-	scrapper = WebScrapper()
-	scrapper.browser.quit()
-
-atexit.register(terminate_browser_on_exit)
-
 class WebScrapper:
 	'''
 	WebScrapper class contains methods used for setting up Selenium and scrapping the web
@@ -42,6 +35,8 @@ class WebScrapper:
 		self.browser = webdriver.Firefox(service=WebScrapper.service, options=WebScrapper.firefox_options)
 		self.__scrape_url = ""
 		self.retry_limit = 2
+		# Terminate the browser on exit to prevent memory leaks
+		atexit.register(self.terminate_browser)
 
 	def begin_scrape(func):
 		'''
@@ -57,6 +52,12 @@ class WebScrapper:
 			result = func(self,args[0])
 			return result
 		return command
+
+	def terminate_browser(self):
+		try:
+			self.browser.quit()
+		except Exception as e:
+			log.error(e)
 
 	def close_browser(self):
 		try:
