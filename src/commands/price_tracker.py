@@ -39,7 +39,6 @@ class Price_tracker(commands.Cog):
         await channel.send(f"<@{user.user_id}> {message}")
 
     @tasks.loop(time=ROUTINE_SCRAPE)
-    # @tasks.loop(minutes=5)
     async def routine_product_scrape(self):
         '''
         Routinely scrapes all users in the database and their tracked products for any sales
